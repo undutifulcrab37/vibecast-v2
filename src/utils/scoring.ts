@@ -1,4 +1,5 @@
 import { Episode, Mood, Theme, ScoredEpisode } from '../types';
+import { ratingService } from '../services/ratingService';
 
 export const vibeKeywordMap: Record<Mood, string[]> = {
   happy: ['uplifting', 'joy', 'funny', 'positive', 'feel good'],
@@ -28,12 +29,12 @@ export const themeKeywordMap: Record<Theme, string[]> = {
   kill_time: ['facts', 'trivia', 'low effort', 'background'],
 };
 
-export function scoreEpisode(
+export async function scoreEpisode(
   episode: Episode,
   userMoods: Mood[],
   userThemes: Theme[],
   maxDuration: number
-): ScoredEpisode {
+): Promise<ScoredEpisode> {
   const text = `${episode.title} ${episode.description}`.toLowerCase();
   let score = 0;
   const matchReasons: string[] = [];
@@ -58,14 +59,26 @@ export function scoreEpisode(
     }
   });
 
-  // Duration scoring - bonus if episode length fits within user time, penalize if too long
+  // Duration scoring - bonus for episodes closer to the exact requested duration
   const durationMinutes = Math.floor(episode.audio_length_sec / 60);
-  if (episode.audio_length_sec <= maxDuration * 60) {
-    score += 5;
+  const durationDifference = Math.abs(durationMinutes - maxDuration);
+  
+  if (durationDifference === 0) {
+    // Perfect match
+    score += 10;
     matchReasons.push(`Perfect length at ${durationMinutes} minutes`);
+  } else if (durationDifference <= 2) {
+    // Very close match
+    score += 7;
+    matchReasons.push(`Great length at ${durationMinutes} minutes`);
+  } else if (durationDifference <= 5) {
+    // Good match (within our filter range)
+    score += 5;
+    matchReasons.push(`Good length at ${durationMinutes} minutes`);
   } else {
-    score -= 10;
-    matchReasons.push(`A bit longer than requested at ${durationMinutes} minutes`);
+    // This shouldn't happen with our new filtering, but just in case
+    score -= 5;
+    matchReasons.push(`${durationMinutes} minutes (outside preferred range)`);
   }
 
   // Bonus for recent episodes
@@ -76,6 +89,18 @@ export function scoreEpisode(
       score += 2;
       matchReasons.push('Recently published');
     }
+  }
+
+  // Rating-based bonus - this uses previous user ratings to improve recommendations
+  try {
+    const ratingBonus = await ratingService.getEpisodeRatingBonus(episode.id, userMoods, userThemes);
+    if (ratingBonus > 0) {
+      score += ratingBonus;
+      matchReasons.push('Highly rated by users with similar preferences');
+    }
+  } catch (error) {
+    console.error('Error getting rating bonus:', error);
+    // Continue without rating bonus
   }
 
   const matchReason = matchReasons.length > 0 
@@ -89,13 +114,57 @@ export function scoreEpisode(
   };
 }
 
-export function rankEpisodes(
+export async function rankEpisodes(
   episodes: Episode[],
   userMoods: Mood[],
   userThemes: Theme[],
   maxDuration: number
-): ScoredEpisode[] {
-  return episodes
-    .map(episode => scoreEpisode(episode, userMoods, userThemes, maxDuration))
-    .sort((a, b) => b.score - a.score);
+): Promise<ScoredEpisode[]> {
+  // First, filter episodes to only include those within 5 minutes of the selected duration
+  const durationToleranceMinutes = 5;
+  const minDurationSeconds = Math.max(0, (maxDuration - durationToleranceMinutes) * 60);
+  const maxDurationSeconds = (maxDuration + durationToleranceMinutes) * 60;
+  
+  console.log(`Filtering episodes for duration: ${maxDuration} minutes (${minDurationSeconds/60}-${maxDurationSeconds/60} min range)`);
+  
+  const filteredEpisodes = episodes.filter(episode => {
+    const durationInRange = episode.audio_length_sec >= minDurationSeconds && 
+                           episode.audio_length_sec <= maxDurationSeconds;
+    
+    if (!durationInRange) {
+      console.log(`Filtered out episode "${episode.title}" - ${Math.floor(episode.audio_length_sec/60)} minutes (outside ${maxDuration}±${durationToleranceMinutes} min range)`);
+    }
+    
+    return durationInRange;
+  });
+  
+  console.log(`Filtered ${episodes.length} episodes down to ${filteredEpisodes.length} episodes within duration range`);
+  
+  // If no episodes match the duration filter, fall back to a wider range
+  if (filteredEpisodes.length === 0) {
+    console.log('No episodes found in strict duration range, expanding to ±15 minutes');
+    const expandedMinDuration = Math.max(0, (maxDuration - 15) * 60);
+    const expandedMaxDuration = (maxDuration + 15) * 60;
+    
+    const expandedFiltered = episodes.filter(episode => 
+      episode.audio_length_sec >= expandedMinDuration && 
+      episode.audio_length_sec <= expandedMaxDuration
+    );
+    
+    console.log(`Found ${expandedFiltered.length} episodes with expanded duration range`);
+    
+    // Score all episodes in parallel
+    const scoredEpisodes = await Promise.all(
+      expandedFiltered.map(episode => scoreEpisode(episode, userMoods, userThemes, maxDuration))
+    );
+    
+    return scoredEpisodes.sort((a, b) => b.score - a.score);
+  }
+  
+  // Score all episodes in parallel
+  const scoredEpisodes = await Promise.all(
+    filteredEpisodes.map(episode => scoreEpisode(episode, userMoods, userThemes, maxDuration))
+  );
+  
+  return scoredEpisodes.sort((a, b) => b.score - a.score);
 } 

@@ -1,37 +1,39 @@
 import { useState, useEffect } from 'react';
-import { Clock, Music, Shuffle, Play, ExternalLink, LogIn, LogOut, User } from 'lucide-react';
+import { Clock, Music, Shuffle, Play, ExternalLink, LogIn, LogOut, User, Sparkles } from 'lucide-react';
 import { Mood, Theme, ScoredEpisode, Episode } from '../types';
 import { rankEpisodes } from '../utils/scoring';
 import { spotifyService } from '../services/spotify';
 import { listenNotesService } from '../services/listenNotes';
 import { demoService } from '../services/demo';
+import { RatingComponent } from './RatingComponent';
+import vibeLogo from '../assets/images/Vibe.png';
 
 const moods: { value: Mood; label: string; color: string }[] = [
-  { value: 'happy', label: '😊 Happy', color: 'bg-gradient-to-r from-yellow-200 to-orange-200 border-yellow-300 text-yellow-800' },
-  { value: 'sad', label: '😢 Sad', color: 'bg-gradient-to-r from-blue-200 to-indigo-200 border-blue-300 text-blue-800' },
-  { value: 'anxious', label: '😰 Anxious', color: 'bg-gradient-to-r from-red-200 to-pink-200 border-red-300 text-red-800' },
-  { value: 'bored', label: '😐 Bored', color: 'bg-gradient-to-r from-gray-200 to-slate-200 border-gray-300 text-gray-800' },
-  { value: 'curious', label: '🤔 Curious', color: 'bg-gradient-to-r from-purple-200 to-violet-200 border-purple-300 text-purple-800' },
-  { value: 'tired', label: '😴 Tired', color: 'bg-gradient-to-r from-indigo-200 to-blue-200 border-indigo-300 text-indigo-800' },
-  { value: 'focused', label: '🎯 Focused', color: 'bg-gradient-to-r from-green-200 to-emerald-200 border-green-300 text-green-800' },
-  { value: 'stressed', label: '😣 Stressed', color: 'bg-gradient-to-r from-orange-200 to-red-200 border-orange-300 text-orange-800' },
-  { value: 'surprise_me', label: '🎲 Surprise Me', color: 'bg-gradient-to-r from-pink-200 to-rose-200 border-pink-300 text-pink-800' },
-  { value: 'dont_know', label: '🤷 Don\'t Know', color: 'bg-gradient-to-r from-slate-200 to-gray-200 border-slate-300 text-slate-800' },
+  { value: 'happy', label: '�� Happy', color: 'bg-[#ffc954] border-[#ffb1cf] text-gray-800 hover:bg-[#ffe1c9]' },
+  { value: 'sad', label: '😢 Sad', color: 'bg-[#c5e4ff] border-[#c8d1fa] text-gray-800 hover:bg-[#ded3f9]' },
+  { value: 'anxious', label: '😰 Anxious', color: 'bg-[#fa9baf] border-[#ffb1cf] text-gray-800 hover:bg-[#f2d6ec]' },
+  { value: 'bored', label: '😐 Bored', color: 'bg-[#c8d1fa] border-[#ded3f9] text-gray-800 hover:bg-[#f1f0ff]' },
+  { value: 'curious', label: '🤔 Curious', color: 'bg-[#ded3f9] border-[#f2d6ec] text-gray-800 hover:bg-[#f1f0ff]' },
+  { value: 'tired', label: '😴 Tired', color: 'bg-[#f1f0ff] border-[#c8d1fa] text-gray-800 hover:bg-[#ded3f9]' },
+  { value: 'focused', label: '🎯 Focused', color: 'bg-[#e1ffd4] border-[#c5e4ff] text-gray-800 hover:bg-[#fdfaf7]' },
+  { value: 'stressed', label: '😣 Stressed', color: 'bg-[#fedec0] border-[#ffe1c9] text-gray-800 hover:bg-[#fa9baf]' },
+  { value: 'surprise_me', label: '🎲 Surprise Me', color: 'bg-[#ffb1cf] border-[#f2d6ec] text-gray-800 hover:bg-[#ffc954]' },
+  { value: 'dont_know', label: '🤷 Don\'t Know', color: 'bg-[#fdfaf7] border-[#c8d1fa] text-gray-800 hover:bg-[#ffe1c9]' },
 ];
 
 const themes: { value: Theme; label: string; color: string }[] = [
-  { value: 'laugh', label: '😂 Laugh', color: 'bg-gradient-to-r from-yellow-200 to-orange-200 border-yellow-300 text-yellow-800' },
-  { value: 'cry', label: '😢 Cry', color: 'bg-gradient-to-r from-blue-200 to-indigo-200 border-blue-300 text-blue-800' },
-  { value: 'learn', label: '🧠 Learn something', color: 'bg-gradient-to-r from-green-200 to-emerald-200 border-green-300 text-green-800' },
-  { value: 'be_inspired', label: '🌟 Be inspired', color: 'bg-gradient-to-r from-purple-200 to-violet-200 border-purple-300 text-purple-800' },
-  { value: 'escape', label: '🌀 Escape', color: 'bg-gradient-to-r from-teal-200 to-cyan-200 border-teal-300 text-teal-800' },
-  { value: 'chill', label: '🧘 Chill out', color: 'bg-gradient-to-r from-indigo-200 to-blue-200 border-indigo-300 text-indigo-800' },
-  { value: 'be_distracted', label: '🎧 Be distracted', color: 'bg-gradient-to-r from-pink-200 to-rose-200 border-pink-300 text-pink-800' },
-  { value: 'be_shocked', label: '😲 Be shocked', color: 'bg-gradient-to-r from-red-200 to-orange-200 border-red-300 text-red-800' },
-  { value: 'reflect', label: '🤔 Reflect', color: 'bg-gradient-to-r from-violet-200 to-purple-200 border-violet-300 text-violet-800' },
-  { value: 'stay_updated', label: '🗞️ Stay updated', color: 'bg-gradient-to-r from-slate-200 to-gray-200 border-slate-300 text-slate-800' },
-  { value: 'feel_seen', label: '🫶 Feel seen', color: 'bg-gradient-to-r from-rose-200 to-pink-200 border-rose-300 text-rose-800' },
-  { value: 'kill_time', label: '⏳ Kill time', color: 'bg-gradient-to-r from-gray-200 to-slate-200 border-gray-300 text-gray-800' },
+  { value: 'laugh', label: '😂 Laugh', color: 'bg-[#ffc954] border-[#ffb1cf] text-gray-800 hover:bg-[#ffe1c9]' },
+  { value: 'cry', label: '😢 Cry', color: 'bg-[#c5e4ff] border-[#c8d1fa] text-gray-800 hover:bg-[#ded3f9]' },
+  { value: 'learn', label: '🧠 Learn something', color: 'bg-[#e1ffd4] border-[#c5e4ff] text-gray-800 hover:bg-[#fdfaf7]' },
+  { value: 'be_inspired', label: '🌟 Be inspired', color: 'bg-[#ded3f9] border-[#f2d6ec] text-gray-800 hover:bg-[#f1f0ff]' },
+  { value: 'escape', label: '🌀 Escape', color: 'bg-[#c5e4ff] border-[#c8d1fa] text-gray-800 hover:bg-[#ded3f9]' },
+  { value: 'chill', label: '🧘 Chill out', color: 'bg-[#f1f0ff] border-[#c8d1fa] text-gray-800 hover:bg-[#ded3f9]' },
+  { value: 'be_distracted', label: '🎧 Be distracted', color: 'bg-[#fa9baf] border-[#ffb1cf] text-gray-800 hover:bg-[#f2d6ec]' },
+  { value: 'be_shocked', label: '😲 Be shocked', color: 'bg-[#fedec0] border-[#ffe1c9] text-gray-800 hover:bg-[#fa9baf]' },
+  { value: 'reflect', label: '🤔 Reflect', color: 'bg-[#f2d6ec] border-[#ded3f9] text-gray-800 hover:bg-[#f1f0ff]' },
+  { value: 'stay_updated', label: '🗞️ Stay updated', color: 'bg-[#c8d1fa] border-[#ded3f9] text-gray-800 hover:bg-[#f1f0ff]' },
+  { value: 'feel_seen', label: '🫶 Feel seen', color: 'bg-[#ffb1cf] border-[#f2d6ec] text-gray-800 hover:bg-[#ffc954]' },
+  { value: 'kill_time', label: '⏳ Kill time', color: 'bg-[#fdfaf7] border-[#c8d1fa] text-gray-800 hover:bg-[#ffe1c9]' },
 ];
 
 export default function Vibecast() {
@@ -43,16 +45,27 @@ export default function Vibecast() {
   const [allEpisodes, setAllEpisodes] = useState<Episode[]>([]);
   const [isSpotifyAuthenticated, setIsSpotifyAuthenticated] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [showRating, setShowRating] = useState(false);
 
   useEffect(() => {
-    setIsSpotifyAuthenticated(spotifyService.isAuthenticated());
+    console.log('Component mounted, checking Spotify authentication...');
+    const isAuth = spotifyService.isAuthenticated();
+    console.log('Spotify authentication status:', isAuth);
+    setIsSpotifyAuthenticated(isAuth);
     
     // Check for authentication errors in URL
     const urlParams = new URLSearchParams(window.location.search);
     const error = urlParams.get('error');
+    const code = urlParams.get('code');
+    
     if (error) {
       console.error('Spotify authentication error:', error);
       alert('Spotify authentication failed. Please try again.');
+    }
+    
+    if (code) {
+      console.log('Spotify authorization code found:', code);
+      // The SpotifyService constructor should handle this automatically
     }
   }, []);
 
@@ -87,26 +100,40 @@ export default function Vibecast() {
     const searchQuery = buildSearchQuery();
     let episodes: Episode[] = [];
 
+    console.log('Starting episode search with query:', searchQuery);
+
     if (isSpotifyAuthenticated) {
       try {
-        episodes = await spotifyService.searchEpisodes(searchQuery, 20);
+        console.log('Searching Spotify...');
+        const spotifyEpisodes = await spotifyService.searchEpisodes(searchQuery, 50); // Increased from 20
+        episodes = [...episodes, ...spotifyEpisodes];
+        console.log(`Found ${spotifyEpisodes.length} Spotify episodes`);
       } catch (error) {
         console.error('Spotify search failed:', error);
       }
+    } else {
+      console.log('Skipping Spotify search - not authenticated');
     }
 
-    if (episodes.length < 10) {
+    if (episodes.length < 20) { // Increased threshold
       try {
-        const listenNotesEpisodes = await listenNotesService.searchEpisodes(searchQuery, 20);
+        console.log('Searching Listen Notes...');
+        const listenNotesEpisodes = await listenNotesService.searchEpisodes(searchQuery, 50); // Increased from 20
         episodes = [...episodes, ...listenNotesEpisodes];
+        console.log(`Found ${listenNotesEpisodes.length} Listen Notes episodes`);
       } catch (error) {
         console.error('Listen Notes search failed:', error);
       }
+    } else {
+      console.log('Skipping Listen Notes search - enough episodes found');
     }
 
     if (episodes.length === 0) {
       try {
-        episodes = await demoService.searchEpisodes(searchQuery, 20);
+        console.log('Searching demo episodes...');
+        const demoEpisodes = await demoService.searchEpisodes(searchQuery, 50); // Increased from 20
+        episodes = [...episodes, ...demoEpisodes];
+        console.log(`Found ${demoEpisodes.length} demo episodes`);
       } catch (error) {
         console.error('Demo search failed:', error);
       }
@@ -114,12 +141,16 @@ export default function Vibecast() {
 
     if (episodes.length === 0) {
       try {
-        episodes = await demoService.getBestPodcasts();
+        console.log('Fetching best podcasts as fallback...');
+        const bestPodcasts = await demoService.getBestPodcasts();
+        episodes = [...episodes, ...bestPodcasts];
+        console.log(`Found ${bestPodcasts.length} best podcasts`);
       } catch (error) {
         console.error('Failed to fetch demo episodes:', error);
       }
     }
 
+    console.log(`Total episodes found: ${episodes.length}`);
     return episodes;
   };
 
@@ -131,37 +162,56 @@ export default function Vibecast() {
 
     setIsLoading(true);
     setShowResults(false);
+    setShowRating(false);
 
     try {
+      console.log('Starting podcast search...');
       const episodes = await fetchEpisodes();
       setAllEpisodes(episodes);
 
       if (episodes.length === 0) {
-        alert('No episodes found. Please try different selections.');
+        console.warn('No episodes found after all search attempts');
+        alert('No episodes found. Please try different selections or check your internet connection.');
         return;
       }
 
-      const rankedEpisodes = rankEpisodes(episodes, selectedMoods, selectedThemes, duration);
+      console.log(`Ranking ${episodes.length} episodes...`);
+      const rankedEpisodes = await rankEpisodes(episodes, selectedMoods, selectedThemes, duration);
+      
+      if (rankedEpisodes.length === 0) {
+        console.warn('No episodes after ranking');
+        alert('No matching episodes found. Please try different selections.');
+        return;
+      }
+      
+      console.log('Found best match:', rankedEpisodes[0]);
+      console.log('Best match source:', rankedEpisodes[0].spotify_uri ? 'Spotify' : 'Demo/Listen Notes');
       setMatchedEpisode(rankedEpisodes[0]);
       setShowResults(true);
+      setShowRating(true);
     } catch (error) {
-      console.error('Error finding match:', error);
-      alert('Something went wrong. Please try again.');
+      console.error('Error in findMatch:', error);
+      alert('Something went wrong while searching for podcasts. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const shuffleMatch = () => {
+  const shuffleMatch = async () => {
     if (allEpisodes.length === 0) return;
 
-    const rankedEpisodes = rankEpisodes(allEpisodes, selectedMoods, selectedThemes, duration);
+    const rankedEpisodes = await rankEpisodes(allEpisodes, selectedMoods, selectedThemes, duration);
     const availableEpisodes = rankedEpisodes.filter(ep => ep.id !== matchedEpisode?.id);
     
     if (availableEpisodes.length > 0) {
       const randomIndex = Math.floor(Math.random() * Math.min(5, availableEpisodes.length));
       setMatchedEpisode(availableEpisodes[randomIndex]);
+      setShowRating(true);
     }
+  };
+
+  const handleRatingSubmitted = () => {
+    setShowRating(false);
   };
 
   const playEpisode = async (episode: ScoredEpisode) => {
@@ -179,9 +229,11 @@ export default function Vibecast() {
     }
   };
 
-  const handleSpotifyLogin = () => {
+  const handleSpotifyLogin = async () => {
+    console.log('Spotify login button clicked!');
+    
     try {
-      const loginUrl = spotifyService.getLoginUrl();
+      const loginUrl = await spotifyService.getLoginUrl();
       console.log('Redirecting to Spotify login:', loginUrl);
       window.location.href = loginUrl;
     } catch (error) {
@@ -211,109 +263,134 @@ export default function Vibecast() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-200 via-yellow-200 to-pink-300">
-      <div className="max-w-md mx-auto min-h-screen bg-white/80 backdrop-blur-sm">
+    <div className="min-h-screen bg-gradient-to-b from-[#c5e4ff] via-[#ffe1c9] via-30% via-[#ffb1cf] via-60% to-[#ded3f9]">
+      <div className="max-w-md mx-auto min-h-screen">
         {/* Header */}
-        <div className="bg-gradient-to-r from-violet-400 to-purple-400 px-6 py-8 rounded-b-3xl shadow-lg">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <Music className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">Vibecast</h1>
-                <p className="text-white/80 text-sm">Find your perfect podcast</p>
-              </div>
+        <div className="bg-[#fdfaf7]/98 backdrop-blur-md px-6 py-6 border-b border-[#c8d1fa]/50">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-center w-full">
+              <img 
+                src={vibeLogo} 
+                alt="Vibecast Logo" 
+                className="h-48 w-auto object-contain max-w-full"
+              />
             </div>
-            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-              <User className="w-4 h-4 text-white" />
+            <div className="w-10 h-10 bg-gradient-to-br from-[#f2d6ec] to-[#ded3f9] rounded-full flex items-center justify-center absolute top-6 right-6 border border-white/50">
+              <User className="w-5 h-5 text-gray-600" />
             </div>
           </div>
 
           {/* Spotify Auth */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
-            {isSpotifyAuthenticated ? (
+          {isSpotifyAuthenticated ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-green-400 to-green-500 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.84-.179-.84-.66 0-.42.179-.78.54-.84 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.242 1.081zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Connected to Spotify</p>
+                  <p className="text-xs text-gray-500">Premium podcast playback enabled</p>
+                </div>
+              </div>
               <button
                 onClick={handleSpotifyLogout}
-                className="w-full flex items-center justify-center gap-2 bg-green-500 text-white py-3 px-4 rounded-xl font-medium hover:bg-green-600 transition-colors"
+                className="flex items-center gap-2 bg-gradient-to-r from-[#fa9baf] to-[#ffb1cf] text-white px-4 py-2 rounded-full font-medium hover:from-[#f2d6ec] hover:to-[#fa9baf] transition-all duration-200 transform hover:scale-[1.02] text-sm"
               >
                 <LogOut size={16} />
-                Logout from Spotify
+                Logout
               </button>
-            ) : (
-              <button
-                onClick={handleSpotifyLogin}
-                className="w-full flex items-center justify-center gap-2 bg-green-500 text-white py-3 px-4 rounded-xl font-medium hover:bg-green-600 transition-colors"
-              >
-                <LogIn size={16} />
-                Login with Spotify
-              </button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <button
+              onClick={handleSpotifyLogin}
+              className="mx-auto block group relative overflow-hidden bg-gradient-to-r from-green-400 to-green-500 text-white py-3 px-8 rounded-full font-semibold hover:from-green-500 hover:to-green-600 transition-all duration-300 transform hover:scale-[1.02]"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-green-300 to-green-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative flex items-center justify-center gap-3">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.84-.179-.84-.66 0-.42.179-.78.54-.84 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.242 1.081zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
+                </svg>
+                <span className="text-base">Connect with Spotify</span>
+              </div>
+            </button>
+          )}
         </div>
 
-        <div className="p-6">
+        <div className="p-6 space-y-8">
           {!showResults ? (
             <>
               {/* Mood Selection */}
-              <div className="mb-8">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">How are you feeling?</h2>
-                <div className="grid grid-cols-2 gap-3">
-                  {moods.map((mood) => (
-                    <button
-                      key={mood.value}
-                      onClick={() => toggleMood(mood.value)}
-                      disabled={!selectedMoods.includes(mood.value) && selectedMoods.length >= 2}
-                      className={`
-                        p-4 rounded-2xl border-2 transition-all duration-200 text-sm font-medium
-                        ${selectedMoods.includes(mood.value) 
-                          ? `${mood.color} border-opacity-50 shadow-lg transform scale-105` 
-                          : selectedMoods.length >= 2 
-                            ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' 
-                            : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300'
-                        }
-                      `}
-                    >
-                      {mood.label}
-                    </button>
-                  ))}
+              <div className="space-y-6">
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">How are you feeling?</h2>
+                  <p className="text-gray-600 text-sm">Select up to 2 moods that describe you right now</p>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Select up to 2 moods</p>
-                {selectedMoods.length >= 2 && (
-                  <p className="text-xs text-orange-600 mt-1">Maximum 2 moods selected</p>
-                )}
+                <div className="bg-gradient-to-br from-[#f2d6ec]/80 via-[#ded3f9]/80 to-[#c5e4ff]/80 rounded-3xl p-6 border border-white/50 backdrop-blur-sm">
+                  <div className="grid grid-cols-2 gap-4">
+                    {moods.map((mood) => (
+                      <button
+                        key={mood.value}
+                        onClick={() => toggleMood(mood.value)}
+                        disabled={!selectedMoods.includes(mood.value) && selectedMoods.length >= 2}
+                        className={`
+                          p-4 rounded-2xl border-2 transition-all duration-300 text-sm font-medium backdrop-blur-sm
+                          ${selectedMoods.includes(mood.value) 
+                            ? 'border-[#ffb1cf] bg-[#ffb1cf]/30 shadow-lg transform scale-105 ring-4 ring-[#f2d6ec]/40' 
+                            : selectedMoods.length >= 2 
+                              ? 'border-[#c8d1fa] text-gray-400 cursor-not-allowed bg-[#fdfaf7]/50' 
+                              : 'border-[#c8d1fa] text-gray-700 hover:border-[#ffb1cf] hover:bg-[#f2d6ec]/30 transform hover:scale-[1.02] hover:shadow-md bg-[#fdfaf7]/80'
+                          }
+                        `}
+                      >
+                        {mood.label}
+                      </button>
+                    ))}
+                  </div>
+                  {selectedMoods.length >= 2 && (
+                    <p className="text-xs text-[#fa9baf] text-center font-medium mt-4">Maximum 2 moods selected</p>
+                  )}
+                </div>
               </div>
 
               {/* Theme Selection */}
-              <div className="mb-8">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">I want to...</h2>
-                <div className="grid grid-cols-2 gap-3">
-                  {themes.map((theme) => (
-                    <button
-                      key={theme.value}
-                      onClick={() => toggleTheme(theme.value)}
-                      className={`
-                        p-4 rounded-2xl border-2 transition-all duration-200 text-sm font-medium
-                        ${selectedThemes.includes(theme.value) 
-                          ? `${theme.color} border-opacity-50 shadow-lg transform scale-105` 
-                          : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300'
-                        }
-                      `}
-                    >
-                      {theme.label}
-                    </button>
-                  ))}
+              <div className="space-y-6">
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">I want to...</h2>
+                  <p className="text-gray-600 text-sm">Choose what you're hoping to get from this podcast</p>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Select any that interest you</p>
+                <div className="bg-gradient-to-br from-[#ded3f9]/80 via-[#c5e4ff]/80 to-[#f2d6ec]/80 rounded-3xl p-6 border border-white/50 backdrop-blur-sm">
+                  <div className="grid grid-cols-2 gap-4">
+                    {themes.map((theme) => (
+                      <button
+                        key={theme.value}
+                        onClick={() => toggleTheme(theme.value)}
+                        className={`
+                          p-4 rounded-2xl border-2 transition-all duration-300 text-sm font-medium backdrop-blur-sm
+                          ${selectedThemes.includes(theme.value) 
+                            ? 'border-[#ffb1cf] bg-[#ffb1cf]/30 shadow-lg transform scale-105 ring-4 ring-[#ded3f9]/40' 
+                            : 'border-[#c8d1fa] text-gray-700 hover:border-[#ffb1cf] hover:bg-[#ded3f9]/30 transform hover:scale-[1.02] hover:shadow-md bg-[#fdfaf7]/80'
+                          }
+                        `}
+                      >
+                        {theme.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* Time Selection */}
-              <div className="mb-8">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Available time</h2>
-                <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <Clock className="w-5 h-5 text-purple-600" />
-                    <span className="text-2xl font-bold text-purple-800">{duration} min</span>
+              <div className="space-y-6">
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">Available time</h2>
+                  <p className="text-gray-600 text-sm">How long do you want to listen?</p>
+                </div>
+                <div className="bg-gradient-to-br from-[#c5e4ff]/80 via-[#f2d6ec]/80 to-[#ded3f9]/80 rounded-3xl p-6 border border-white/50 backdrop-blur-sm">
+                  <div className="flex items-center justify-between mb-6">
+                    <Clock className="w-6 h-6 text-[#ded3f9]" />
+                    <span className="text-3xl font-bold text-gray-800">{duration} min</span>
                   </div>
                   <input
                     type="range"
@@ -321,9 +398,9 @@ export default function Vibecast() {
                     max="180"
                     value={duration}
                     onChange={(e) => setDuration(Number(e.target.value))}
-                    className="w-full h-2 bg-white/50 rounded-lg appearance-none cursor-pointer slider"
+                    className="w-full h-3 bg-[#fdfaf7]/70 rounded-full appearance-none cursor-pointer slider"
                   />
-                  <div className="flex justify-between text-xs text-purple-600 mt-2">
+                  <div className="flex justify-between text-xs text-gray-600 mt-3 font-medium">
                     <span>5 min</span>
                     <span>180 min</span>
                   </div>
@@ -334,15 +411,18 @@ export default function Vibecast() {
               <button
                 onClick={findMatch}
                 disabled={isLoading || (selectedMoods.length === 0 && selectedThemes.length === 0)}
-                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-4 px-6 rounded-2xl font-semibold text-lg shadow-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-gradient-to-r from-[#fa9baf] to-[#ffb1cf] text-white py-5 px-6 rounded-full font-bold text-lg hover:from-[#ffb1cf] hover:to-[#ffc954] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
               >
                 {isLoading ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     Finding your perfect match...
                   </div>
                 ) : (
-                  'Find My Podcast ✨'
+                  <div className="flex items-center justify-center gap-2">
+                    <Sparkles className="w-5 h-5" />
+                    Find My Podcast
+                  </div>
                 )}
               </button>
             </>
@@ -350,47 +430,94 @@ export default function Vibecast() {
             matchedEpisode && (
               <div className="space-y-6">
                 {/* Episode Card */}
-                <div className="bg-gradient-to-br from-white to-gray-50 rounded-3xl p-6 shadow-xl border border-gray-100">
+                <div className="bg-[#fdfaf7]/95 backdrop-blur-sm rounded-3xl p-6 border border-white/50 shadow-lg">
                   <div className="flex items-start gap-4 mb-4">
                     {matchedEpisode.cover_art && (
                       <img 
                         src={matchedEpisode.cover_art} 
                         alt={matchedEpisode.title}
-                        className="w-20 h-20 rounded-2xl object-cover shadow-lg"
+                        className="w-24 h-24 rounded-2xl object-cover shadow-md"
                       />
                     )}
                     <div className="flex-1">
-                      <h3 className="font-bold text-lg text-gray-800 mb-2 line-clamp-2">
+                      <h3 className="font-bold text-xl text-gray-800 mb-2 line-clamp-2 leading-tight">
                         {matchedEpisode.title}
                       </h3>
-                      <p className="text-purple-600 font-medium text-sm mb-1">
+                      <p className="text-[#ded3f9] font-semibold text-sm mb-1">
                         {matchedEpisode.podcast_name}
                       </p>
-                      <p className="text-gray-500 text-sm">
+                      <p className="text-gray-500 text-sm font-medium">
                         {formatDuration(matchedEpisode.audio_length_sec)}
                       </p>
                     </div>
                   </div>
                   
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-3 leading-relaxed">
                     {matchedEpisode.description}
                   </p>
+                  
+                  {/* Display the filters used */}
+                  <div className="bg-gradient-to-r from-[#f2d6ec]/70 to-[#ded3f9]/70 rounded-2xl p-4 mb-4 border border-white/50 backdrop-blur-sm">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-[#ded3f9]" />
+                      Matched your preferences:
+                    </h4>
+                    <div className="space-y-3">
+                      {/* Mood filters */}
+                      {selectedMoods.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          <span className="text-xs text-gray-600 font-medium">Mood:</span>
+                          {selectedMoods.map(mood => {
+                            const moodConfig = moods.find(m => m.value === mood);
+                            return (
+                              <span key={mood} className="text-xs px-3 py-1 rounded-full font-medium bg-[#fdfaf7]/90 border border-[#f2d6ec] text-[#fa9baf]">
+                                {moodConfig?.label || mood}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                      
+                      {/* Theme filters */}
+                      {selectedThemes.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          <span className="text-xs text-gray-600 font-medium">Themes:</span>
+                          {selectedThemes.map(theme => {
+                            const themeConfig = themes.find(t => t.value === theme);
+                            return (
+                              <span key={theme} className="text-xs px-3 py-1 rounded-full font-medium bg-[#fdfaf7]/90 border border-[#ded3f9] text-[#ded3f9]">
+                                {themeConfig?.label || theme}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                      
+                      {/* Duration filter */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600 font-medium">Duration:</span>
+                        <span className="text-xs px-3 py-1 rounded-full bg-[#fdfaf7]/90 border border-[#c5e4ff] text-[#c5e4ff] font-medium">
+                          {duration} minutes
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                   
                   <div className="flex gap-3">
                     <button
                       onClick={() => playEpisode(matchedEpisode)}
-                      className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 px-4 rounded-xl font-medium hover:from-purple-600 hover:to-pink-600 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#fa9baf] to-[#ffb1cf] text-white py-3 px-4 rounded-full font-semibold hover:from-[#ffb1cf] hover:to-[#ffc954] transition-all duration-200 transform hover:scale-[1.02] shadow-lg"
                     >
-                      <Play size={16} />
-                      Play
+                      <Play size={18} />
+                      Play Now
                     </button>
                     
                     {matchedEpisode.external_url && (
                       <button
                         onClick={() => window.open(matchedEpisode.external_url, '_blank')}
-                        className="flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-3 px-4 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                        className="flex items-center justify-center gap-2 bg-[#fdfaf7]/90 backdrop-blur-sm text-gray-700 py-3 px-4 rounded-full font-semibold hover:bg-[#fdfaf7] transition-all duration-200 transform hover:scale-[1.02] border border-[#c8d1fa]"
                       >
-                        <ExternalLink size={16} />
+                        <ExternalLink size={18} />
                       </button>
                     )}
                   </div>
@@ -400,19 +527,32 @@ export default function Vibecast() {
                 <div className="flex gap-4">
                   <button
                     onClick={shuffleMatch}
-                    className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-orange-400 to-pink-400 text-white py-4 px-6 rounded-2xl font-medium hover:from-orange-500 hover:to-pink-500 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#ded3f9] to-[#c5e4ff] text-white py-4 px-6 rounded-full font-semibold hover:from-[#c5e4ff] hover:to-[#f1f0ff] transition-all duration-200 transform hover:scale-[1.02] shadow-lg"
                   >
                     <Shuffle size={20} />
                     Shuffle
                   </button>
                   
                   <button
-                    onClick={() => setShowResults(false)}
-                    className="flex-1 bg-gray-100 text-gray-700 py-4 px-6 rounded-2xl font-medium hover:bg-gray-200 transition-colors"
+                    onClick={() => {
+                      setShowResults(false);
+                      setShowRating(false);
+                    }}
+                    className="flex-1 bg-[#fdfaf7]/90 backdrop-blur-sm text-gray-700 py-4 px-6 rounded-full font-semibold hover:bg-[#fdfaf7] transition-all duration-200 transform hover:scale-[1.02] border border-[#c8d1fa]"
                   >
                     New Search
                   </button>
                 </div>
+
+                {/* Rating Component */}
+                {showRating && matchedEpisode && (
+                  <RatingComponent
+                    episode={matchedEpisode}
+                    userMoods={selectedMoods}
+                    userThemes={selectedThemes}
+                    onRatingSubmitted={handleRatingSubmitted}
+                  />
+                )}
               </div>
             )
           )}

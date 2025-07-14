@@ -6,18 +6,29 @@ const LISTEN_NOTES_BASE_URL = config.listenNotes.baseUrl;
 
 export class ListenNotesService {
   private async makeRequest(endpoint: string): Promise<any> {
-    const response = await fetch(`${LISTEN_NOTES_BASE_URL}${endpoint}`, {
-      headers: {
-        'X-ListenAPI-Key': LISTEN_NOTES_API_KEY,
-        'Content-Type': 'application/json',
-      },
-    });
+    try {
+      const response = await fetch(`${LISTEN_NOTES_BASE_URL}${endpoint}`, {
+        headers: {
+          'X-ListenAPI-Key': LISTEN_NOTES_API_KEY,
+          'Content-Type': 'application/json',
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error(`Listen Notes API error: ${response.status}`);
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Listen Notes API: Invalid or missing API key');
+          throw new Error('Listen Notes API authentication failed');
+        }
+        const errorText = await response.text();
+        console.error(`Listen Notes API error: ${response.status} - ${errorText}`);
+        throw new Error(`Listen Notes API error: ${response.status}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Listen Notes API request failed:', error);
+      throw error;
     }
-
-    return response.json();
   }
 
   public async searchEpisodes(query: string, limit: number = 20): Promise<Episode[]> {
@@ -33,7 +44,23 @@ export class ListenNotesService {
 
       const data = await this.makeRequest(`/search?${params.toString()}`);
       
-      return data.results.slice(0, limit).map((episode: ListenNotesEpisode) => this.convertListenNotesEpisode(episode));
+      // Safely handle the response structure
+      if (!data || !data.results || !Array.isArray(data.results)) {
+        console.warn('Unexpected Listen Notes API response structure:', data);
+        return [];
+      }
+      
+      return data.results.slice(0, limit)
+        .filter((episode: any) => episode && episode.id) // Filter out null/undefined episodes
+        .map((episode: ListenNotesEpisode) => {
+          try {
+            return this.convertListenNotesEpisode(episode);
+          } catch (error) {
+            console.error('Error converting Listen Notes episode:', error, episode);
+            return null;
+          }
+        })
+        .filter((episode: Episode | null): episode is Episode => episode !== null); // Remove failed conversions
     } catch (error) {
       console.error('Error searching Listen Notes episodes:', error);
       return [];

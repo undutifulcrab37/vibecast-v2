@@ -12,18 +12,42 @@ export interface Episode {
 
 export interface SpotifyEpisode {
   id: string;
-  name: string;
-  description: string;
-  duration_ms: number;
-  show: {
-    name: string;
-    images: Array<{ url: string; height: number; width: number }>;
+  name?: string;
+  description?: string;
+  html_description?: string;
+  duration_ms?: number;
+  publisher?: string;
+  show_name?: string;
+  podcast_name?: string;
+  cover_art?: string;
+  show?: {
+    id?: string;
+    name?: string;
+    title?: string;
+    publisher?: string;
+    display_name?: string;
+    description?: string;
+    image?: string;
+    images?: Array<{ url: string; height: number; width: number }>;
+    owner?: {
+      name?: string;
+      display_name?: string;
+    };
+    external_urls?: {
+      spotify?: string;
+    };
   };
-  uri: string;
-  external_urls: {
-    spotify: string;
+  podcast?: {
+    name?: string;
+    title?: string;
+    image?: string;
   };
-  release_date: string;
+  images?: Array<{ url: string; height: number; width: number }>;
+  uri?: string;
+  external_urls?: {
+    spotify?: string;
+  };
+  release_date?: string;
 }
 
 export interface ListenNotesEpisode {
@@ -51,4 +75,21 @@ export interface VibeSelection {
 export interface ScoredEpisode extends Episode {
   score: number;
   matchReason: string;
+}
+
+export interface UserRating {
+  episodeId: string;
+  rating: number; // 1-5 stars
+  mood: Mood[];
+  themes: Theme[];
+  timestamp: number;
+  comment?: string;
+}
+
+export interface RatingData {
+  episodeId: string;
+  averageRating: number;
+  totalRatings: number;
+  moodRatings: Record<Mood, { sum: number; count: number }>;
+  themeRatings: Record<Theme, { sum: number; count: number }>;
 } 

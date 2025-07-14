@@ -51,55 +51,56 @@ export const demoEpisodes: Episode[] = [
     external_url: 'https://example.com/episode5',
     published_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
   },
+  // Add more episodes with different durations for better testing
   {
     id: 'demo-6',
-    title: 'Current Events: What You Need to Know This Week',
-    description: 'Stay updated with the latest news, current events, and cultural happenings. Get the essential information you need to stay informed about politics, culture, and world events.',
-    audio_length_sec: 2400, // 40 minutes
-    podcast_name: 'Weekly Update',
-    cover_art: 'https://images.unsplash.com/photo-1489599484573-4b7e1b1c9e5c?w=300&h=300&fit=crop',
+    title: 'Quick Tech Tips: Productivity Hacks in 15 Minutes',
+    description: 'Fast-paced tech tips and productivity hacks. Learn how to optimize your workflow, master keyboard shortcuts, and boost your efficiency in just 15 minutes.',
+    audio_length_sec: 900, // 15 minutes
+    podcast_name: 'Tech Quick',
+    cover_art: 'https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=300&h=300&fit=crop',
     external_url: 'https://example.com/episode6',
     published_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
     id: 'demo-7',
-    title: 'Random Facts: Weird Trivia and Unusual Stories',
-    description: 'A collection of bizarre facts, strange stories, and random trivia. Perfect background listening to kill time. From unusual historical events to weird science discoveries, this episode will entertain you.',
-    audio_length_sec: 1800, // 30 minutes
-    podcast_name: 'Weird World',
-    cover_art: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300&h=300&fit=crop',
+    title: 'Morning Motivation: 10-Minute Energy Boost',
+    description: 'Start your day right with this energizing 10-minute motivation session. Positive affirmations, goal-setting tips, and inspiring stories to fuel your morning routine.',
+    audio_length_sec: 600, // 10 minutes
+    podcast_name: 'Daily Boost',
+    cover_art: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=300&fit=crop',
     external_url: 'https://example.com/episode7',
-    published_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+    published_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
     id: 'demo-8',
-    title: 'Deep Reflections: Life, Meaning, and Mental Health',
-    description: 'A thoughtful exploration of life\'s big questions. Delve into introspective discussions about personal growth, relationships, and the human experience. Perfect for those seeking deeper understanding.',
-    audio_length_sec: 3300, // 55 minutes
-    podcast_name: 'Deep Thoughts',
-    cover_art: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=300&h=300&fit=crop',
+    title: 'Deep Dive: The History of Space Exploration',
+    description: 'A comprehensive 90-minute journey through the history of space exploration. From the first satellites to Mars missions, explore humanity\'s greatest adventure in detail.',
+    audio_length_sec: 5400, // 90 minutes
+    podcast_name: 'Space Chronicles',
+    cover_art: 'https://images.unsplash.com/photo-1446776877081-d282a0f896e2?w=300&h=300&fit=crop',
     external_url: 'https://example.com/episode8',
-    published_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+    published_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
     id: 'demo-9',
-    title: 'How to Master Any Skill: Deep Dive into Learning',
-    description: 'Educational content on learning methods, memory techniques, and study strategies. A comprehensive explainer on how to learn faster, retain information better, and master new skills efficiently.',
-    audio_length_sec: 2100, // 35 minutes
-    podcast_name: 'Learning Lab',
-    cover_art: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=300&h=300&fit=crop',
+    title: 'Lunch Break Learning: Psychology Facts',
+    description: 'Perfect for your lunch break! Discover fascinating psychology facts and insights in this bite-sized 20-minute episode. Learn about human behavior, cognitive biases, and mental tricks.',
+    audio_length_sec: 1200, // 20 minutes
+    podcast_name: 'Mind Bites',
+    cover_art: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=300&h=300&fit=crop',
     external_url: 'https://example.com/episode9',
-    published_at: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
+    published_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
     id: 'demo-10',
-    title: 'Moving Family Stories: True Tales That Will Make You Cry',
-    description: 'Emotional true stories about family, love, and human connection. These moving narratives will touch your heart and might bring tears to your eyes. Perfect for when you want to feel deeply.',
-    audio_length_sec: 2700, // 45 minutes
-    podcast_name: 'Heart Stories',
-    cover_art: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=300&h=300&fit=crop',
+    title: 'Weekend Stories: 2-Hour True Crime Marathon',
+    description: 'Settle in for a long-form true crime investigation. This 2-hour deep dive covers multiple cases, interviews with experts, and detailed analysis of criminal psychology.',
+    audio_length_sec: 7200, // 120 minutes
+    podcast_name: 'Crime Deep Dive',
+    cover_art: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=300&h=300&fit=crop',
     external_url: 'https://example.com/episode10',
-    published_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    published_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
   },
 ];
 

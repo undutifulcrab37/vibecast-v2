@@ -6,7 +6,7 @@
 .slider {
   -webkit-appearance: none;
   appearance: none;
-  background: linear-gradient(to right, #0ea5e9 0%, #0ea5e9 50%, #e2e8f0 50%, #e2e8f0 100%);
+  background: linear-gradient(to right, #ffb1cf 0%, #ffb1cf 50%, #fdfaf7 50%, #fdfaf7 100%);
   outline: none;
   border-radius: 8px;
 }
@@ -15,32 +15,32 @@
   appearance: none;
   width: 24px;
   height: 24px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  background: linear-gradient(135deg, #fa9baf, #ded3f9);
   border-radius: 50%;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(250, 155, 175, 0.3);
   transition: all 0.2s ease;
 }
 
 .slider::-webkit-slider-thumb:hover {
   transform: scale(1.1);
-  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+  box-shadow: 0 6px 16px rgba(250, 155, 175, 0.4);
 }
 
 .slider::-moz-range-thumb {
   width: 24px;
   height: 24px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  background: linear-gradient(135deg, #fa9baf, #ded3f9);
   border-radius: 50%;
   cursor: pointer;
   border: none;
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(250, 155, 175, 0.3);
   transition: all 0.2s ease;
 }
 
 .slider::-moz-range-thumb:hover {
   transform: scale(1.1);
-  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+  box-shadow: 0 6px 16px rgba(250, 155, 175, 0.4);
 }
 
 /* Line clamp utilities */

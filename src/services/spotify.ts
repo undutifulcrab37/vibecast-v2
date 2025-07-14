@@ -84,9 +84,71 @@ export class SpotifyService {
       });
 
       const data = await this.makeRequest(`/search?${params.toString()}`);
-      console.log('Spotify search results:', data);
+      console.log('🔍 FULL Spotify search results:', JSON.stringify(data, null, 2));
       
-      return data.episodes.items.map((episode: SpotifyEpisode) => this.convertSpotifyEpisode(episode));
+      // Safely handle the response structure
+      if (!data || !data.episodes || !Array.isArray(data.episodes.items)) {
+        console.warn('Unexpected Spotify API response structure:', data);
+        return [];
+      }
+      
+      console.log('🔍 First episode COMPLETE raw data:', JSON.stringify(data.episodes.items[0], null, 2));
+      
+      // Extract show IDs from episode URIs and fetch show details
+      const episodes: Episode[] = [];
+      const showCache = new Map<string, any>(); // Cache to avoid duplicate show API calls
+      
+      for (const rawEpisode of data.episodes.items) {
+        if (!rawEpisode || !rawEpisode.id) continue;
+        
+        try {
+          // Get full episode details which should include show information
+          console.log('🔍 Episode href:', rawEpisode.href);
+          
+          try {
+            const fullEpisodeData = await this.makeRequest(`/episodes/${rawEpisode.id}?market=US`);
+            console.log('🔍 Full episode data:', JSON.stringify(fullEpisodeData, null, 2));
+            
+            // Full episode data should include show information
+            if (fullEpisodeData.show && fullEpisodeData.show.id) {
+              const showId = fullEpisodeData.show.id;
+              
+              // Check cache first
+              if (showCache.has(showId)) {
+                const cachedShowData = showCache.get(showId);
+                console.log('🔍 Using cached show data for:', showId);
+                fullEpisodeData.show = {
+                  ...fullEpisodeData.show,
+                  ...cachedShowData
+                };
+              } else {
+                // Fetch show details
+                const showData = await this.makeRequest(`/shows/${showId}?market=US`);
+                showCache.set(showId, showData);
+                console.log('🔍 Fetched show data for:', showId, showData);
+                
+                // Merge show data into episode
+                fullEpisodeData.show = {
+                  ...fullEpisodeData.show,
+                  ...showData
+                };
+              }
+            }
+            
+            const convertedEpisode = this.convertSpotifyEpisode(fullEpisodeData);
+            episodes.push(convertedEpisode);
+          } catch (episodeError) {
+            console.error('Error fetching full episode details:', episodeError);
+            // Fallback to original episode data
+            const convertedEpisode = this.convertSpotifyEpisode(rawEpisode);
+            episodes.push(convertedEpisode);
+          }
+        } catch (error) {
+          console.error('Error converting Spotify episode:', error, rawEpisode);
+        }
+      }
+      
+      return episodes;
     } catch (error) {
       console.error('Error searching Spotify episodes:', error);
       return [];

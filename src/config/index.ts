@@ -1,7 +1,7 @@
 export const config = {
   spotify: {
     clientId: '0b957080e89f49aba057eeda72d543af',
-    redirectUri: 'https://vibecast-v2-rc52j18s6-jess-projects-35aa46dd.vercel.app',
+    redirectUri: 'https://britannica-explore-municipal-renewable.trycloudflare.com',
     scopes: 'user-read-email user-read-private user-read-playback-state user-modify-playback-state streaming',
   },
   listenNotes: {

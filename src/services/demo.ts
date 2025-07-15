@@ -9,6 +9,7 @@ export const demoEpisodes: Episode[] = [
     podcast_name: 'The Happiness Lab',
     cover_art: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=300&fit=crop',
     external_url: 'https://example.com/episode1',
+    apple_podcasts_url: 'https://podcasts.apple.com/us/podcast/the-happiness-lab/id1474245040',
     published_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
@@ -19,6 +20,7 @@ export const demoEpisodes: Episode[] = [
     podcast_name: 'Mystery Files',
     cover_art: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=300&h=300&fit=crop',
     external_url: 'https://example.com/episode2',
+    apple_podcasts_url: 'https://podcasts.apple.com/search?term=Mystery%20Files',
     published_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
@@ -29,6 +31,7 @@ export const demoEpisodes: Episode[] = [
     podcast_name: 'Laugh Track',
     cover_art: 'https://images.unsplash.com/photo-1541532713592-79a0317b6b77?w=300&h=300&fit=crop',
     external_url: 'https://example.com/episode3',
+    apple_podcasts_url: 'https://podcasts.apple.com/search?term=Laugh%20Track',
     published_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {

@@ -6,6 +6,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        'sans': ['Open Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
       colors: {
         primary: {
           50: '#f0f9ff',
@@ -31,6 +34,26 @@ export default {
           800: '#86198f',
           900: '#701a75',
         }
+      },
+      keyframes: {
+        shine: {
+          '0%': { transform: 'translateY(-100%) skewY(-12deg)', opacity: '0' },
+          '2%': { transform: 'translateY(-80%) skewY(-12deg)', opacity: '0.6' },
+          '8%': { transform: 'translateY(120%) skewY(-12deg)', opacity: '0' },
+          '10%': { transform: 'translateY(-100%) skewY(-12deg)', opacity: '0' },
+          '25%': { transform: 'translateY(-100%) skewY(-12deg)', opacity: '0' },
+          '27%': { transform: 'translateY(-90%) skewY(-12deg)', opacity: '0.3' },
+          '30%': { transform: 'translateY(110%) skewY(-12deg)', opacity: '0' },
+          '32%': { transform: 'translateY(-100%) skewY(-12deg)', opacity: '0' },
+          '60%': { transform: 'translateY(-100%) skewY(-12deg)', opacity: '0' },
+          '62%': { transform: 'translateY(-85%) skewY(-12deg)', opacity: '0.8' },
+          '68%': { transform: 'translateY(115%) skewY(-12deg)', opacity: '0' },
+          '70%': { transform: 'translateY(-100%) skewY(-12deg)', opacity: '0' },
+          '100%': { transform: 'translateY(-100%) skewY(-12deg)', opacity: '0' }
+        }
+      },
+      animation: {
+        shine: 'shine 8s ease-in-out infinite'
       }
     },
   },

@@ -6,7 +6,9 @@ export interface Episode {
   podcast_name: string;
   cover_art?: string;
   spotify_uri?: string;
+  spotify_url?: string; // Add Spotify search URL
   external_url?: string;
+  apple_podcasts_url?: string; // Add Apple Podcasts URL
   published_at?: string;
 }
 
@@ -75,7 +77,7 @@ export interface VibeSelection {
 export interface ScoredEpisode extends Episode {
   score: number;
   matchReason: string;
-}
+} 
 
 export interface UserRating {
   episodeId: string;

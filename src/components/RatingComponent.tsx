@@ -45,8 +45,8 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({
     } catch (error) {
       console.error('Error saving rating:', error);
       // Still show success to user - the service has localStorage fallback
-      setIsSubmitted(true);
-      onRatingSubmitted();
+    setIsSubmitted(true);
+    onRatingSubmitted();
     }
   };
 
@@ -64,20 +64,20 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({
   const getRatingColor = (rating: number): string => {
     switch (rating) {
       case 1: return 'text-red-600';
-      case 2: return 'text-orange-500';
-      case 3: return 'text-yellow-500';
-      case 4: return 'text-green-500';
+      case 2: return 'text-orange-600';
+      case 3: return 'text-yellow-600';
+      case 4: return 'text-green-600';
       case 5: return 'text-purple-600';
-      default: return 'text-gray-500';
+      default: return 'text-gray-600';
     }
   };
 
   if (isSubmitted) {
     return (
-      <div className="bg-gradient-to-r from-[#e1ffd4]/80 to-[#c5e4ff]/80 rounded-3xl p-6 border border-white/50 shadow-lg backdrop-blur-sm">
+      <div className="bg-gradient-to-r from-[#e1d5ff]/80 via-[#d4c5ff]/70 to-[#c8b5ff]/80 rounded-3xl p-6 border border-[#b19cd9]/50 shadow-lg backdrop-blur-sm">
         <div className="text-center">
           <div className="flex items-center justify-center mb-3">
-            <CheckCircle className="w-8 h-8 text-[#e1ffd4]" />
+            <CheckCircle className="w-8 h-8 text-[#8b5cf6]" />
           </div>
           <h3 className="text-xl font-bold text-gray-800 mb-2">Thanks for your feedback!</h3>
           <p className="text-sm text-gray-600 leading-relaxed">
@@ -89,13 +89,13 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({
   }
 
   return (
-    <div className="bg-gradient-to-r from-[#f2d6ec]/80 to-[#ded3f9]/80 rounded-3xl p-6 border border-white/50 shadow-lg backdrop-blur-sm">
+    <div className="bg-gradient-to-br from-[#ffc1cc] via-[#d8b4fe] via-[#a5b4fc] to-[#fef3c7] rounded-3xl p-6 border border-[#c4b5fd]/50 shadow-lg backdrop-blur-sm">
       <div className="text-center">
         <div className="flex items-center justify-center gap-2 mb-3">
-          <Sparkles className="w-5 h-5 text-[#ded3f9]" />
+          <Sparkles className="w-5 h-5 text-gray-700" />
           <h3 className="text-xl font-bold text-gray-800">How was this match?</h3>
         </div>
-        <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+        <p className="text-sm text-gray-700 mb-6 leading-relaxed">
           Rate how well this episode matched your mood and preferences
         </p>
 
@@ -107,14 +107,14 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({
               onClick={() => handleStarClick(star)}
               onMouseEnter={() => setHoveredRating(star)}
               onMouseLeave={() => setHoveredRating(0)}
-              className="p-2 transition-all duration-200 hover:scale-110 rounded-full hover:bg-[#fdfaf7]/60"
+              className="p-2 transition-all duration-200 hover:scale-110 rounded-full hover:bg-purple-200/50"
             >
               <Star
                 size={32}
                 className={`
                   ${star <= (hoveredRating || rating) 
-                    ? 'fill-[#ffc954] text-[#ffc954]' 
-                    : 'text-[#c8d1fa] hover:text-[#ded3f9]'
+                    ? 'fill-purple-500 text-purple-500' 
+                    : 'text-gray-400 hover:text-purple-400'
                   }
                   transition-colors duration-200
                 `}
@@ -134,7 +134,7 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({
         <div className="mb-6">
           <button
             onClick={() => setShowComment(!showComment)}
-            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors mx-auto font-medium hover:bg-[#fdfaf7]/60 px-4 py-2 rounded-full"
+            className="flex items-center gap-2 text-sm text-purple-600 hover:text-purple-700 transition-colors mx-auto font-medium hover:bg-purple-100/50 px-4 py-2 rounded-full border border-purple-200"
           >
             <MessageCircle size={18} />
             {showComment ? 'Hide comment' : 'Add comment (optional)'}
@@ -148,11 +148,11 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Tell us more about your experience..."
-              className="w-full p-4 border border-[#c8d1fa] rounded-2xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#ffb1cf] focus:border-[#ffb1cf] bg-[#fdfaf7]/95 backdrop-blur-sm"
+              className="w-full p-4 border border-purple-200 rounded-2xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-purple-300 bg-white/50 backdrop-blur-sm placeholder-gray-500 text-gray-700"
               rows={3}
               maxLength={200}
             />
-            <div className="text-xs text-gray-500 mt-2 text-right font-medium">
+            <div className="text-xs text-purple-600 mt-2 text-right font-medium">
               {comment.length}/200
             </div>
           </div>
@@ -162,7 +162,7 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({
         <button
           onClick={handleSubmit}
           disabled={rating === 0}
-          className="flex items-center gap-2 bg-gradient-to-r from-[#fa9baf] to-[#ffb1cf] text-white px-8 py-3 rounded-full font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:from-[#ffb1cf] hover:to-[#ffc954] transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] mx-auto"
+          className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white px-8 py-3 rounded-full font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] mx-auto"
         >
           <Send size={18} />
           Submit Rating

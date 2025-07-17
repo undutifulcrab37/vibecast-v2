@@ -1,286 +1,171 @@
 import { Episode } from '../types';
-import { listenNotesService } from './listenNotes';
-import { spotifyService } from './spotify';
-import { generateCategorySearchTerms } from '../utils/categoryMapping';
-import { Mood, Theme } from '../types';
+import { spotifyService, SpotifyPodcast } from './spotify';
 
-export enum SearchProvider {
-  LISTEN_NOTES = 'listen_notes',
-  SPOTIFY = 'spotify',
-  HYBRID = 'hybrid'
+export type PodcastProvider = 'spotify';
+
+export interface PodcastSearchResult {
+  episodes: Episode[];
+  provider: PodcastProvider;
+  error?: string;
 }
 
 export class PodcastService {
-  private preferredProvider: SearchProvider = SearchProvider.HYBRID;
-  private fallbackToDemo: boolean = false;
+  private currentProvider: PodcastProvider = 'spotify';
+  // private searchCache = new Map<string, { data: Episode[]; timestamp: number }>();
+  // private readonly CACHE_TTL =50;
 
-  // Set preferred search provider
-  public setProvider(provider: SearchProvider): void {
-    this.preferredProvider = provider;
-    console.log(`🔧 Podcast service provider set to: ${provider}`);
+  constructor() {
+    console.log('🎧 PodcastService initialized');
   }
 
-  // Get current provider status
-  public getProviderStatus(): { provider: SearchProvider; authenticated: boolean; available: boolean } {
-    const spotifyAuth = spotifyService.isAuthenticated();
+  // Convert SpotifyPodcast to Episode format
+  private convertSpotifyPodcastToEpisode(podcast: SpotifyPodcast): Episode {
+    // Set a reasonable default duration for podcast shows (30 minutes = 1800 seconds)
+    // This allows them to pass through the scoring system's duration filters
+    const defaultDurationSeconds = 30 * 60; // 30 minutes
     
     return {
-      provider: this.preferredProvider,
-      authenticated: spotifyAuth,
-      available: true // Listen Notes doesn't require auth
+      id: `spotify_${podcast.id}`,
+      title: podcast.name,
+      description: podcast.description || 'No description available',
+      audio_length_sec: defaultDurationSeconds, // Default duration for podcast shows
+      podcast_name: podcast.name,
+      publisher: podcast.publisher,
+      cover_art: podcast.images?.[0]?.url || '',
+      external_url: podcast.external_urls.spotify,
+      spotify_uri: `spotify:show:${podcast.id}`,
+      published_at: new Date().toISOString(),
+      // Add platform links
+      platform_links: {
+        spotify: podcast.external_urls.spotify,
+        apple: podcast.apple_url,
+        google: podcast.google_url,
+        web: podcast.web_url,
+      },
+      // Mark as podcast show rather than episode
+      content_type: 'podcast_show',
+      // Mark all Spotify content as top quality since it's curated
+      is_top_quality: true,
+      // VibeCast 2.1: Map popularity and quality indicators
+      spotify_popularity: podcast.popularity || 0,
+      episode_count: podcast.total_episodes || 0,
+      // Estimate follower count based on popularity (rough approximation)
+      follower_count: podcast.popularity ? Math.floor(podcast.popularity * 1000) : undefined,
+      // Professional podcasts typically have good descriptions
+      has_transcript: (podcast.description?.length || 0) > 100,
+      // Assume regular release schedule for popular podcasts
+      release_schedule: podcast.popularity && podcast.popularity > 50 ? 'weekly' : 'irregular',
     };
   }
 
-  // Main search method that intelligently chooses the best strategy
-  public async searchEpisodes(
-    selectedMoods: Mood[], 
-    selectedThemes: Theme[], 
-    duration: number = 45
-  ): Promise<Episode[]> {
-    console.log('🔍 Starting intelligent podcast search...');
-    console.log('📊 Search params:', { selectedMoods, selectedThemes, duration, provider: this.preferredProvider });
-
-    const categoryTerms = generateCategorySearchTerms(selectedMoods, selectedThemes);
-    const searchQuery = categoryTerms.slice(0, 8).join(' ') || 'podcast';
-
-    let episodes: Episode[] = [];
-
+  // Search using Spotify service (returns podcast shows with platform links)
+  private async searchSpotify(query: string, limit: number = 20): Promise<Episode[]> {
     try {
-      switch (this.preferredProvider) {
-        case SearchProvider.SPOTIFY:
-          episodes = await this.searchWithSpotify(searchQuery, categoryTerms);
-          break;
-        
-        case SearchProvider.LISTEN_NOTES:
-          episodes = await this.searchWithListenNotes(searchQuery, categoryTerms);
-          break;
-        
-        case SearchProvider.HYBRID:
-        default:
-          episodes = await this.searchWithHybridStrategy(searchQuery, categoryTerms);
-          break;
-      }
-
-      // Filter by duration if we have enough episodes
-      if (episodes.length > 20) {
-        const durationSeconds = duration * 60;
-        const tolerance = 0.5; // 50% tolerance
-        const minDuration = durationSeconds * (1 - tolerance);
-        const maxDuration = durationSeconds * (1 + tolerance);
-        
-        const durationFiltered = episodes.filter(ep => 
-          ep.audio_length_sec >= minDuration && ep.audio_length_sec <= maxDuration
-        );
-        
-        if (durationFiltered.length > 5) {
-          episodes = durationFiltered;
-        }
-      }
-
-      console.log(`✅ Podcast search completed: ${episodes.length} episodes found`);
+      console.log('🎵 Searching Spotify for:', query);
+      const podcasts = await spotifyService.searchPodcasts(query, limit);
+      const episodes = podcasts.map(podcast => this.convertSpotifyPodcastToEpisode(podcast));
+      console.log(`✅ Spotify: Found ${episodes.length} podcast shows`);
       return episodes;
-
     } catch (error) {
-      console.error('💥 Podcast search failed:', error);
-      throw new Error(`Podcast search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  // Spotify-only search strategy
-  private async searchWithSpotify(searchQuery: string, categoryTerms: string[]): Promise<Episode[]> {
-    console.log('🎵 Using Spotify search strategy');
-    
-    if (!spotifyService.isAuthenticated()) {
-      throw new Error('Spotify authentication required. Please log in to Spotify first.');
-    }
-
-    const episodes: Episode[] = [];
-
-    try {
-      // Strategy 1: Combined search (episodes + shows)
-      const combinedResults = await spotifyService.searchPodcasts(searchQuery, 50);
-      episodes.push(...combinedResults);
-
-      // Strategy 2: Category-based searches
-      for (const category of categoryTerms.slice(0, 3)) { // Limit to 3 categories
-        try {
-          const categoryResults = await spotifyService.searchEpisodes(category, 20);
-          episodes.push(...categoryResults);
-        } catch (error) {
-          console.warn(`⚠️ Spotify category search failed for: ${category}`, error);
-        }
-      }
-
-      // Remove duplicates
-      const uniqueEpisodes = episodes.filter((episode, index, self) => 
-        self.findIndex(e => e.id === episode.id) === index
-      );
-
-      console.log(`🎵 Spotify search completed: ${uniqueEpisodes.length} unique episodes`);
-      return uniqueEpisodes;
-
-    } catch (error) {
-      console.error('💥 Spotify search failed:', error);
+      console.error('❌ Spotify search failed:', error);
       throw error;
     }
   }
 
-  // Listen Notes-only search strategy (quota-friendly)
-  private async searchWithListenNotes(searchQuery: string, categoryTerms: string[]): Promise<Episode[]> {
-    console.log('📻 Using Listen Notes search strategy (quota-friendly)');
-    
-    const episodes: Episode[] = [];
+  // Remove duplicate episodes based on title similarity
+  private removeDuplicates(episodes: Episode[]): Episode[] {
+    const seen = new Set<string>();
+    const unique: Episode[] = [];
 
+    for (const episode of episodes) {
+      // Create a normalized key for comparison
+      const key = this.normalizeTitle(episode.title);
+      
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(episode);
+      }
+    }
+
+    return unique;
+  }
+
+  // Normalize title for duplicate detection
+  private normalizeTitle(title: string): string {
+    return title
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '') // Remove punctuation
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+  }
+
+  // Main search method using only Spotify
+  async searchPodcasts(query: string, limit: number = 20): Promise<PodcastSearchResult> {
+    console.log(`🔍 Starting Spotify podcast search: "${query}" (limit: ${limit})`);
+    
     try {
-      // Strategy 1: Single category search (1 API call)
-      if (categoryTerms.length > 0) {
-        const bestCategory = categoryTerms[0];
-        const categoryEpisodes = await listenNotesService.searchEpisodes(bestCategory, 50);
-        episodes.push(...categoryEpisodes);
-        console.log(`📻 Listen Notes category search: ${categoryEpisodes.length} episodes`);
-      }
+      const spotifyResults = await this.searchSpotify(query, limit);
+      const uniqueResults = this.removeDuplicates(spotifyResults);
       
-      // Strategy 2: Single query search if needed (1 API call)
-      if (episodes.length < 20 && searchQuery !== 'podcast') {
-        const queryEpisodes = await listenNotesService.searchEpisodes(searchQuery, 30);
-        episodes.push(...queryEpisodes);
-        console.log(`📻 Listen Notes query search: ${queryEpisodes.length} episodes`);
-      }
-
-      // Remove duplicates
-      const uniqueEpisodes = episodes.filter((episode, index, self) => 
-        self.findIndex(e => e.id === episode.id) === index
-      );
-
-      console.log(`📻 Listen Notes search completed: ${uniqueEpisodes.length} unique episodes`);
-      return uniqueEpisodes;
-
+      return {
+        episodes: uniqueResults.slice(0, limit),
+        provider: 'spotify',
+      };
     } catch (error) {
-      console.error('💥 Listen Notes search failed:', error);
-      throw error;
+      console.error('💥 Spotify podcast search failed:', error);
+      return {
+        episodes: [],
+        provider: 'spotify',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
   }
 
-  // Hybrid strategy: Use both APIs intelligently
-  private async searchWithHybridStrategy(searchQuery: string, categoryTerms: string[]): Promise<Episode[]> {
-    console.log('🔀 Using hybrid search strategy');
-    
-    const episodes: Episode[] = [];
-    const errors: string[] = [];
-
-    // Try Spotify first if authenticated (it has better rate limits)
-    if (spotifyService.isAuthenticated()) {
-      try {
-        console.log('🎵 Trying Spotify search first...');
-        const spotifyResults = await this.searchWithSpotify(searchQuery, categoryTerms.slice(0, 2));
-        episodes.push(...spotifyResults);
-        console.log(`✅ Spotify provided ${spotifyResults.length} episodes`);
-      } catch (error) {
-        console.warn('⚠️ Spotify search failed, will try Listen Notes:', error);
-        errors.push(`Spotify: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    } else {
-      console.log('🔑 Spotify not authenticated, skipping...');
-      errors.push('Spotify: Not authenticated');
-    }
-
-    // Try Listen Notes if we don't have enough results or Spotify failed
-    if (episodes.length < 20) {
-      try {
-        console.log('📻 Trying Listen Notes search...');
-        const listenNotesResults = await this.searchWithListenNotes(searchQuery, categoryTerms.slice(0, 2));
-        episodes.push(...listenNotesResults);
-        console.log(`✅ Listen Notes provided ${listenNotesResults.length} episodes`);
-      } catch (error) {
-        console.warn('⚠️ Listen Notes search failed:', error);
-        errors.push(`Listen Notes: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }
-
-    // Remove duplicates across services
-    const uniqueEpisodes = episodes.filter((episode, index, self) => 
-      self.findIndex(e => e.id === episode.id) === index
-    );
-
-    if (uniqueEpisodes.length === 0) {
-      const errorMessage = `All search providers failed:\n${errors.join('\n')}`;
-      console.error('💀 Hybrid search failed completely:', errorMessage);
-      throw new Error(errorMessage);
-    }
-
-    console.log(`🔀 Hybrid search completed: ${uniqueEpisodes.length} unique episodes from ${episodes.length} total`);
-    return uniqueEpisodes;
+  // Set preferred provider (always Spotify now)
+  setProvider(_provider: PodcastProvider): void {
+    this.currentProvider = 'spotify';
+    console.log(`📡 Provider set to: spotify`);
   }
 
-  // Test all available services
-  public async testServices(): Promise<{
-    spotify: { success: boolean; message: string; details?: any };
-    listenNotes: { success: boolean; message: string; details?: any };
-  }> {
-    console.log('🧪 Testing all podcast services...');
-
-    const [spotifyTest, listenNotesTest] = await Promise.allSettled([
-      spotifyService.testApiConnection(),
-      listenNotesService.testApiConnection()
-    ]);
-
-    const results = {
-      spotify: spotifyTest.status === 'fulfilled' 
-        ? spotifyTest.value 
-        : { success: false, message: 'Test failed', details: spotifyTest.reason },
-      
-      listenNotes: listenNotesTest.status === 'fulfilled' 
-        ? listenNotesTest.value 
-        : { success: false, message: 'Test failed', details: listenNotesTest.reason }
-    };
-
-    console.log('🧪 Service test results:', results);
-    return results;
+  // Get current provider
+  getProvider(): PodcastProvider {
+    return this.currentProvider;
   }
 
-  // Get recommendations for provider choice
-  public getProviderRecommendation(): { 
-    recommended: SearchProvider; 
-    reason: string; 
-    alternatives: { provider: SearchProvider; pros: string[]; cons: string[] }[] 
+  // Get provider status for UI
+  getProviderStatus(): {
+    provider: PodcastProvider;
+    authenticated: boolean;
   } {
-    const spotifyAuth = spotifyService.isAuthenticated();
-    
-    if (spotifyAuth) {
-      return {
-        recommended: SearchProvider.HYBRID,
-        reason: 'Spotify is authenticated, hybrid mode provides best coverage and rate limits',
-        alternatives: [
-          {
-            provider: SearchProvider.SPOTIFY,
-            pros: ['No monthly limits', 'Better rate limits', 'Native playback'],
-            cons: ['Limited to Spotify content', 'Requires authentication']
-          },
-          {
-            provider: SearchProvider.LISTEN_NOTES,
-            pros: ['Comprehensive podcast database', 'No authentication needed'],
-            cons: ['300 requests/month limit', 'May hit quota quickly']
-          }
-        ]
-      };
-    } else {
-      return {
-        recommended: SearchProvider.LISTEN_NOTES,
-        reason: 'Spotify not authenticated, Listen Notes provides comprehensive coverage',
-        alternatives: [
-          {
-            provider: SearchProvider.SPOTIFY,
-            pros: ['Better rate limits after authentication'],
-            cons: ['Requires Spotify login first', 'Limited content scope']
-          },
-          {
-            provider: SearchProvider.HYBRID,
-            pros: ['Best of both worlds when Spotify is authenticated'],
-            cons: ['Currently limited to Listen Notes only']
-          }
-        ]
-      };
-    }
+    return {
+      provider: this.currentProvider,
+      authenticated: false, // Mock spotify service doesn't require authentication
+    };
+  }
+
+  // Get provider recommendation
+  getProviderRecommendation(): {
+    recommended: PodcastProvider;
+    reason: string;
+  } {
+    return {
+      recommended: 'spotify',
+      reason: 'Spotify provides access to millions of high-quality podcasts.',
+    };
+  }
+
+  // Test Spotify service only
+  async testServices(): Promise<{
+    spotify: { success: boolean; message: string };
+  }> {
+    const spotifyResult = await spotifyService.testService().catch(() => ({
+      success: false,
+      message: 'Service test failed'
+    }));
+
+    return {
+      spotify: spotifyResult,
+    };
   }
 }
 

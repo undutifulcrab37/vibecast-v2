@@ -1,4 +1,5 @@
 import { Episode } from '../types';
+import { applePodcastsService } from './applePodcasts';
 
 export class UrlGeneratorService {
   // Generate Spotify search URL for a podcast/episode
@@ -9,14 +10,19 @@ export class UrlGeneratorService {
     return `${baseUrl}/${encodedQuery}`;
   }
 
-  // Generate Apple Podcasts search URL for a podcast/episode
+  // Generate Apple Podcasts app URL for a podcast/episode (uses podcasts:// scheme)
   public generateApplePodcastsUrl(episode: Episode): string {
-    const baseUrl = 'https://podcasts.apple.com/search';
-    const searchQuery = `${episode.podcast_name} ${episode.title}`;
-    const params = new URLSearchParams({
-      term: searchQuery,
-    });
-    return `${baseUrl}?${params.toString()}`;
+    return applePodcastsService.generateApplePodcastsUrl(episode.podcast_name, episode.title);
+  }
+
+  // Generate Apple Podcasts web URL for fallback
+  public generateApplePodcastsWebUrl(episode: Episode): string {
+    return applePodcastsService.generateApplePodcastsWebUrl(episode.podcast_name, episode.title);
+  }
+
+  // Generate a direct Apple Podcasts URL
+  public generateDirectApplePodcastsUrl(episode: Episode): string {
+    return applePodcastsService.generateDirectApplePodcastsUrl(episode.podcast_name, episode.title);
   }
 
   // Generate a generic podcast search URL (can be used for other platforms)

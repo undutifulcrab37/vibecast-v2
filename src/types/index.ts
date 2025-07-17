@@ -4,12 +4,31 @@ export interface Episode {
   description: string;
   audio_length_sec: number;
   podcast_name: string;
+  publisher?: string;
   cover_art?: string;
-  spotify_uri?: string;
-  spotify_url?: string; // Add Spotify search URL
   external_url?: string;
-  apple_podcasts_url?: string; // Add Apple Podcasts URL
+  spotify_uri?: string;
   published_at?: string;
+  // New fields for multi-platform support
+  platform_links?: {
+    spotify?: string;
+    apple?: string;
+    google?: string;
+    web?: string;
+  };
+  content_type?: 'episode' | 'podcast_show';
+  // New flag to track top charts/new & noteworthy content
+  is_top_quality?: boolean;
+  // VibeCast 2.1: New fields for popularity scoring
+  spotify_popularity?: number;  // Spotify popularity score (0-100)
+  follower_count?: number;      // Number of followers/subscribers
+  chart_position?: number;      // Chart position (1-100, lower is better)
+  // Enhanced quality indicators
+  has_transcript?: boolean;     // Whether transcript is available
+  episode_count?: number;       // Total episodes in the podcast
+  release_schedule?: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'irregular';
+  // Apple Podcasts URL
+  apple_podcasts_url?: string;
 }
 
 export interface SpotifyEpisode {
@@ -50,19 +69,6 @@ export interface SpotifyEpisode {
     spotify?: string;
   };
   release_date?: string;
-}
-
-export interface ListenNotesEpisode {
-  id: string;
-  title: string;
-  description: string;
-  audio_length_sec: number;
-  podcast: {
-    title: string;
-    image: string;
-  };
-  listennotes_url: string;
-  pub_date_ms: number;
 }
 
 export type Mood = 'happy' | 'sad' | 'anxious' | 'bored' | 'curious' | 'tired' | 'focused' | 'stressed' | 'surprise_me' | 'dont_know';

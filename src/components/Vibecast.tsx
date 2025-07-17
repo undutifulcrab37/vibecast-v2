@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Shuffle, ExternalLink, User, Sparkles, ChevronDown, ChevronUp, BarChart3, TrendingUp, Settings, Music } from 'lucide-react';
+import { Shuffle, User, Sparkles, ChevronDown, ChevronUp, BarChart3, TrendingUp, Settings, Music } from 'lucide-react';
 import { Mood, Theme, ScoredEpisode, Episode } from '../types';
-import { rankEpisodes, getRecommendationStats } from '../utils/scoring';
-import { podcastService, SearchProvider } from '../services/podcastService';
+import { rankEpisodes, getRecommendationStats, incrementSessionCount, recordSkip, resetSkipCount } from '../utils/scoring';
+import { podcastService } from '../services/podcastService';
 import { spotifyService } from '../services/spotify';
-import { urlGeneratorService } from '../services/urlGenerator';
 import { RatingComponent } from './RatingComponent';
 import { ratingService } from '../services/ratingService';
-import vibeLogo from '../assets/images/Vibe.png';
 
 // Service Status Component
 const ServiceStatus = ({ isVisible, onClose }: { isVisible: boolean; onClose: () => void }) => {
@@ -44,11 +42,6 @@ const ServiceStatus = ({ isVisible, onClose }: { isVisible: boolean; onClose: ()
     window.location.href = loginUrl;
   };
 
-  const handleProviderChange = (provider: SearchProvider) => {
-    podcastService.setProvider(provider);
-    loadStatus();
-  };
-
   if (!isVisible) return null;
 
   return (
@@ -61,8 +54,8 @@ const ServiceStatus = ({ isVisible, onClose }: { isVisible: boolean; onClose: ()
                 <Settings className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Service Status</h2>
-                <p className="text-gray-600">Manage podcast search providers</p>
+                <h2 className="text-2xl font-bold text-gray-900">Spotify Service Status</h2>
+                <p className="text-gray-600">Manage your Spotify connection</p>
               </div>
             </div>
             <button
@@ -76,44 +69,19 @@ const ServiceStatus = ({ isVisible, onClose }: { isVisible: boolean; onClose: ()
           {status && (
             <div className="space-y-6">
               {/* Current Status */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4">
-                <h3 className="font-semibold text-indigo-900 mb-3">Current Configuration</h3>
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4">
+                <h3 className="font-semibold text-green-900 mb-3">Current Configuration</h3>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-indigo-800">Provider:</span>
-                    <span className="font-medium text-indigo-900">{status.provider}</span>
+                    <span className="text-sm text-green-800">Provider:</span>
+                    <span className="font-medium text-green-900">Spotify</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-indigo-800">Spotify Authenticated:</span>
+                    <span className="text-sm text-green-800">Spotify Authenticated:</span>
                     <span className={`font-medium ${status.authenticated ? 'text-green-600' : 'text-red-600'}`}>
                       {status.authenticated ? 'Yes' : 'No'}
                     </span>
                   </div>
-                </div>
-              </div>
-
-              {/* Provider Selection */}
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Choose Search Provider</h3>
-                <div className="space-y-3">
-                  {Object.values(SearchProvider).map(provider => (
-                    <button
-                      key={provider}
-                      onClick={() => handleProviderChange(provider)}
-                      className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
-                        status.provider === provider
-                          ? 'border-blue-500 bg-blue-50 text-blue-900'
-                          : 'border-gray-200 hover:border-gray-300 text-gray-700'
-                      }`}
-                    >
-                      <div className="font-medium capitalize">{provider.replace('_', ' ')}</div>
-                      <div className="text-sm opacity-75">
-                        {provider === SearchProvider.SPOTIFY && 'Spotify-only search (requires login)'}
-                        {provider === SearchProvider.LISTEN_NOTES && 'Listen Notes-only search (300/month limit)'}
-                        {provider === SearchProvider.HYBRID && 'Best of both worlds (recommended)'}
-                      </div>
-                    </button>
-                  ))}
                 </div>
               </div>
 
@@ -122,7 +90,7 @@ const ServiceStatus = ({ isVisible, onClose }: { isVisible: boolean; onClose: ()
                 <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4">
                   <h3 className="font-semibold text-green-900 mb-2">🎵 Connect Spotify</h3>
                   <p className="text-sm text-green-800 mb-3">
-                    Unlock better rate limits and native playback by connecting your Spotify account.
+                    Connect your Spotify account to access millions of podcasts and enjoy native playback.
                   </p>
                   <button
                     onClick={handleSpotifyLogin}
@@ -137,9 +105,9 @@ const ServiceStatus = ({ isVisible, onClose }: { isVisible: boolean; onClose: ()
               {/* Recommendations */}
               {status.recommendation && (
                 <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4">
-                  <h3 className="font-semibold text-purple-900 mb-2">💡 Recommendation</h3>
+                  <h3 className="font-semibold text-purple-900 mb-2">💡 About VibeCast</h3>
                   <p className="text-sm text-purple-800 mb-3">
-                    <strong>Use {status.recommendation.recommended}:</strong> {status.recommendation.reason}
+                    <strong>Powered by Spotify:</strong> {status.recommendation.reason}
                   </p>
                 </div>
               )}
@@ -147,13 +115,13 @@ const ServiceStatus = ({ isVisible, onClose }: { isVisible: boolean; onClose: ()
               {/* Test Services */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-gray-900">Test Services</h3>
+                  <h3 className="font-semibold text-gray-900">Test Spotify Connection</h3>
                   <button
                     onClick={testServices}
                     disabled={loading}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition-colors text-sm disabled:opacity-50"
+                    className="flex items-center gap-2 bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 transition-colors text-sm disabled:opacity-50"
                   >
-                    {loading ? '🔄' : '🧪'} Test All
+                    {loading ? '🔄' : '🧪'} Test Connection
                   </button>
                 </div>
                 
@@ -167,16 +135,6 @@ const ServiceStatus = ({ isVisible, onClose }: { isVisible: boolean; onClose: ()
                         </span>
                       </div>
                       <p className="text-sm opacity-75">{testResults.spotify.message}</p>
-                    </div>
-                    
-                    <div className={`p-3 rounded-lg ${testResults.listenNotes.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">Listen Notes</span>
-                        <span className={testResults.listenNotes.success ? 'text-green-600' : 'text-red-600'}>
-                          {testResults.listenNotes.success ? '✅' : '❌'}
-                        </span>
-                      </div>
-                      <p className="text-sm opacity-75">{testResults.listenNotes.message}</p>
                     </div>
                   </div>
                 )}
@@ -498,6 +456,22 @@ export default function Vibecast() {
   const [showPreferencesInsight, setShowPreferencesInsight] = useState(false);
   const [showServiceStatus, setShowServiceStatus] = useState(false);
 
+  // VibeCast 2.1: Track user sessions and skips
+  const [userSessionCount, setUserSessionCount] = useState(0);
+  const [consecutiveSkips, setConsecutiveSkips] = useState(0);
+  
+  // NEW: Track previously shown episodes to prevent repetition
+  const [previouslyShownEpisodes, setPreviouslyShownEpisodes] = useState<Set<string>>(new Set());
+  const [shuffleOptions, setShuffleOptions] = useState<ScoredEpisode[]>([]);
+  const [currentShuffleIndex, setCurrentShuffleIndex] = useState(0);
+
+  // Initialize session tracking
+  useEffect(() => {
+    const stats = getRecommendationStats();
+    setUserSessionCount(stats.sessionCount);
+    setConsecutiveSkips(stats.recentSkips);
+  }, []);
+
   // Remove Spotify authentication logic since it's no longer needed for primary search
   useEffect(() => {
     // No longer need to check Spotify authentication
@@ -505,31 +479,20 @@ export default function Vibecast() {
 
   // Test function to diagnose API issues
   const testApiConnection = async () => {
-    console.log('🧪 Starting API diagnostics...');
+    console.log('🧪 Starting Spotify API diagnostics...');
     
     try {
       const testResult = await podcastService.testServices();
       console.log('🧪 API Test Result:', testResult);
       
-      const successCount = Object.values(testResult).filter(result => result.success).length;
-      const totalServices = Object.keys(testResult).length;
-      
-      if (successCount > 0) {
-        const serviceDetails = Object.entries(testResult)
-          .map(([service, result]) => `${service}: ${result.success ? '✅' : '❌'} ${result.message}`)
-          .join('\n');
-        
-        alert(`🧪 API Test Results (${successCount}/${totalServices} working):\n\n${serviceDetails}`);
+      if (testResult.spotify.success) {
+        alert(`🧪 Spotify Connection Test: ✅ ${testResult.spotify.message}`);
       } else {
-        const errors = Object.entries(testResult)
-          .map(([service, result]) => `${service}: ${result.message}`)
-          .join('\n');
-        
-        alert(`❌ All APIs Failed!\n\n${errors}\n\nTry connecting Spotify or check your internet connection.`);
+        alert(`❌ Spotify Connection Failed!\n\n${testResult.spotify.message}\n\nTry connecting your Spotify account or check your internet connection.`);
       }
     } catch (error) {
       console.error('🧪 API test failed:', error);
-      alert(`💥 API Test Failed!\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nCheck console for details.`);
+      alert(`💥 Spotify Test Failed!\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nCheck console for details.`);
     }
   };
 
@@ -555,27 +518,49 @@ export default function Vibecast() {
   };
 
   const fetchEpisodes = async () => {
-    console.log('🔍 DEBUG: Starting intelligent episode search with new service...');
+    console.log('🔍 DEBUG: Starting category-based Spotify search...');
     console.log('🔍 Selected moods:', selectedMoods);
     console.log('🔍 Selected themes:', selectedThemes);
     console.log('🔍 Duration:', duration);
 
     try {
-      // Use the new hybrid podcast service
-      const episodes = await podcastService.searchEpisodes(selectedMoods, selectedThemes, duration);
+      // Import category mapping to get proper podcast categories
+      const { getCategoriesForUserSelection } = await import('../utils/categoryMapping');
+      const categories = getCategoriesForUserSelection(selectedMoods, selectedThemes);
       
-      if (episodes.length === 0) {
-        throw new Error('No podcasts found for your criteria. Try different mood/theme combinations or check your API quotas.');
+      // Use actual podcast categories for search - NO KEYWORD CONVERSION
+      const categoryTerms = [
+        ...categories.primary,
+        ...categories.secondary.slice(0, 3), // Limit secondary categories
+      ];
+      
+      console.log('🏷️ Pure podcast categories to search:', categoryTerms);
+      
+      // Search using pure category names (no "podcast" suffix)
+      const searchQueries = categoryTerms.length > 0 
+        ? categoryTerms.map(category => category.toLowerCase()) // Just use category name as-is
+        : ['comedy', 'education', 'science']; // Fallback categories
+      
+      // Use the first category as primary search
+      const primarySearch = searchQueries[0];
+      console.log('🔍 Primary category search (pure category):', primarySearch);
+      
+      // Use Spotify podcast service with pure category search
+      const result = await podcastService.searchPodcasts(primarySearch, 20);
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      
+      if (result.episodes.length === 0) {
+        throw new Error('No podcasts found for your criteria. Try different mood/theme combinations.');
       }
 
-      // Enhance episodes with platform URLs
-      const enhancedEpisodes = urlGeneratorService.enhanceEpisodesWithUrls(episodes);
-
-      console.log(`🎉 SUCCESS: ${enhancedEpisodes.length} episodes found using intelligent search`);
-      return enhancedEpisodes;
+      console.log(`🎉 SUCCESS: ${result.episodes.length} category-based podcasts found`);
+      return result.episodes;
 
     } catch (error) {
-      console.error('💥 Intelligent search failed:', error);
+      console.error('💥 Category-based search failed:', error);
       throw error;
     }
   };
@@ -591,14 +576,26 @@ export default function Vibecast() {
     setShowRating(false);
 
     try {
-      console.log('Starting podcast search...');
+      console.log('🚀 VibeCast 2.1: Starting podcast search...');
+      
+      // Increment session count
+      incrementSessionCount();
+      setUserSessionCount(prev => prev + 1);
+      
+      // Reset skip count on new search
+      resetSkipCount();
+      setConsecutiveSkips(0);
+      
+      // NEW: Reset shuffle tracking for new search
+      setPreviouslyShownEpisodes(new Set());
+      setShuffleOptions([]);
+      setCurrentShuffleIndex(0);
+      
       const episodes = await fetchEpisodes();
       setAllEpisodes(episodes);
 
-      console.log(`Ranking ${episodes.length} episodes...`);
-      console.log('First episode before ranking:', episodes[0]);
+      console.log(`📊 Ranking ${episodes.length} episodes with VibeCast 2.1...`);
       const rankedEpisodes = await rankEpisodes(episodes, selectedMoods, selectedThemes, duration);
-      console.log('First ranked episode:', rankedEpisodes[0]);
       
       if (rankedEpisodes.length === 0) {
         console.warn('No episodes after ranking');
@@ -621,119 +618,133 @@ export default function Vibecast() {
     }
   };
 
+  // VibeCast 2.1: Enhanced Smart Shuffle with 10 unique options
   const shuffleMatch = async () => {
-    if (allEpisodes.length === 0) {
-      console.warn('No episodes available for shuffling');
+    if (!allEpisodes.length) {
+      console.warn('No episodes to shuffle from');
       return;
     }
 
-    console.log(`🎲 Enhanced Shuffle: Starting from ${allEpisodes.length} total episodes`);
-    
-    // Re-rank all episodes to get fresh scoring with enhanced algorithm
-    const rankedEpisodes = await rankEpisodes(allEpisodes, selectedMoods, selectedThemes, duration);
-    
-    if (rankedEpisodes.length === 0) {
-      console.warn('No ranked episodes available for shuffling');
-      return;
-    }
-
-    // Get episodes that are different from the current match
-    const availableEpisodes = rankedEpisodes.filter(ep => ep.id !== matchedEpisode?.id);
-    
-    console.log(`🎯 Available for intelligent shuffle: ${availableEpisodes.length} episodes`);
-    
-    if (availableEpisodes.length > 0) {
-      // ENHANCED SMART SHUFFLE ALGORITHM: Uses semantic scoring + diversity optimization
-      let selectedEpisode;
+    try {
+      console.log('🎲 VibeCast 2.1: Generating 10 unique shuffle options...');
       
-      // Get recommendation stats for diversity considerations
-      const { recentCount } = getRecommendationStats();
-      const needsDiversity = recentCount > 5; // After 5 recommendations, prioritize diversity
+      // Track skip behavior
+      recordSkip();
+      setConsecutiveSkips(prev => prev + 1);
       
-      if (availableEpisodes.length <= 5) {
-        // Small pool: pick best available
-        selectedEpisode = availableEpisodes[0];
-        console.log(`🎯 Small pool: selected top-ranked episode`);
-      } else {
-        // Use enhanced weighted selection based on scoring factors
-        const rand = Math.random();
+      // If we don't have shuffle options yet, generate them
+      if (shuffleOptions.length === 0) {
+        const rankedEpisodes = await rankEpisodes(allEpisodes, selectedMoods, selectedThemes, duration);
         
-        // Adjust probabilities based on user patterns and diversity needs
-        const diversityWeight = needsDiversity ? 0.4 : 0.2;
-        const qualityWeight = 1 - diversityWeight;
+        // Filter out the currently shown episode and previously shown episodes
+        const availableEpisodes = rankedEpisodes.filter(ep => 
+          ep.id !== matchedEpisode?.id && 
+          !previouslyShownEpisodes.has(ep.id)
+        );
         
-        if (rand < qualityWeight * 0.5) {
-          // High-quality tier: Top 5 episodes with best semantic + personal fit scores
-          const topTier = availableEpisodes.slice(0, Math.min(5, availableEpisodes.length));
-          selectedEpisode = topTier[Math.floor(Math.random() * topTier.length)];
-          console.log(`🌟 Premium tier: selected from top 5 (score: ${selectedEpisode.score})`);
-        } else if (rand < qualityWeight * 0.8) {
-          // Quality tier: Top 15 episodes with good matches
-          const qualityTier = availableEpisodes.slice(0, Math.min(15, availableEpisodes.length));
-          selectedEpisode = qualityTier[Math.floor(Math.random() * qualityTier.length)];
-          console.log(`⭐ Quality tier: selected from top 15 (score: ${selectedEpisode.score})`);
-        } else if (rand < qualityWeight) {
-          // Exploration tier: Top 30 for variety with quality
-          const explorationTier = availableEpisodes.slice(0, Math.min(30, availableEpisodes.length));
-          selectedEpisode = explorationTier[Math.floor(Math.random() * explorationTier.length)];
-          console.log(`🔍 Exploration tier: selected from top 30 (score: ${selectedEpisode.score})`);
-        } else {
-          // Discovery tier: Beyond top 30 for maximum diversity
-          const startIndex = Math.min(30, availableEpisodes.length);
-          if (startIndex < availableEpisodes.length) {
-            const discoveryTier = availableEpisodes.slice(startIndex);
-            selectedEpisode = discoveryTier[Math.floor(Math.random() * discoveryTier.length)];
-            console.log(`🚀 Discovery tier: selected rank ${startIndex + discoveryTier.indexOf(selectedEpisode) + 1} (score: ${selectedEpisode.score})`);
+        if (availableEpisodes.length === 0) {
+          console.log('No more unique episodes available for shuffle');
+          alert('You\'ve seen all available episodes for this search. Try a new search!');
+          return;
+        }
+        
+        // Generate 10 unique options using smart tier selection
+        const options: ScoredEpisode[] = [];
+        const maxAttempts = 50; // Prevent infinite loops
+        let attempts = 0;
+        
+        while (options.length < 10 && attempts < maxAttempts && availableEpisodes.length > 0) {
+          attempts++;
+          
+          // Dynamic tier selection based on user experience
+          let premiumWeight: number;
+          let qualityWeight: number;
+          
+          if (userSessionCount <= 3) {
+            // New users: prioritize quality
+            premiumWeight = 0.7;
+            qualityWeight = 0.9; // 70% premium, 20% quality, 10% explore
           } else {
-            // Fallback to exploration tier
-            const explorationTier = availableEpisodes.slice(0, Math.min(15, availableEpisodes.length));
+            // Experienced users: more balanced
+            premiumWeight = 0.5;
+            qualityWeight = 0.8; // 50% premium, 30% quality, 20% explore
+          }
+          
+          // Disable explore tier after 2+ consecutive skips
+          if (consecutiveSkips >= 2) {
+            qualityWeight = 1.0; // Only premium and quality tiers
+          }
+
+          const rand = Math.random();
+          let selectedEpisode: ScoredEpisode;
+          
+          if (rand < premiumWeight) {
+            // Premium tier: Top 5 best matches
+            const premiumTier = availableEpisodes.slice(0, Math.min(5, availableEpisodes.length));
+            selectedEpisode = premiumTier[Math.floor(Math.random() * premiumTier.length)];
+          } else if (rand < qualityWeight) {
+            // Quality tier: Top 15 good matches
+            const qualityTier = availableEpisodes.slice(0, Math.min(15, availableEpisodes.length));
+            selectedEpisode = qualityTier[Math.floor(Math.random() * qualityTier.length)];
+          } else {
+            // Exploration tier: Top 30 for variety (only if skips < 2)
+            const explorationTier = availableEpisodes.slice(0, Math.min(30, availableEpisodes.length));
             selectedEpisode = explorationTier[Math.floor(Math.random() * explorationTier.length)];
-            console.log(`↩️ Fallback exploration: selected from top 15 (score: ${selectedEpisode.score})`);
+          }
+          
+          // Add to options if not already included
+          if (selectedEpisode && !options.some(opt => opt.id === selectedEpisode.id)) {
+            options.push(selectedEpisode);
+            // Remove from available episodes to prevent duplicates
+            const episodeIndex = availableEpisodes.findIndex(ep => ep.id === selectedEpisode.id);
+            if (episodeIndex > -1) {
+              availableEpisodes.splice(episodeIndex, 1);
+            }
           }
         }
+        
+        console.log(`🎲 Generated ${options.length} unique shuffle options`);
+        setShuffleOptions(options);
+        setCurrentShuffleIndex(0);
       }
       
-      if (selectedEpisode) {
-        console.log(`✨ Enhanced shuffle result: "${selectedEpisode.title}"`);
+      // If we have options, cycle through them
+      if (shuffleOptions.length > 0) {
+        const nextIndex = (currentShuffleIndex + 1) % shuffleOptions.length;
+        const selectedEpisode = shuffleOptions[nextIndex];
+        
+        // Add to previously shown episodes
+        setPreviouslyShownEpisodes(prev => new Set([...prev, selectedEpisode.id]));
+        setCurrentShuffleIndex(nextIndex);
+        
+        console.log(`✨ VibeCast 2.1 shuffle result (${nextIndex + 1}/${shuffleOptions.length}): "${selectedEpisode.title}"`);
         console.log(`📊 Match factors: ${selectedEpisode.matchReason}`);
         setMatchedEpisode(selectedEpisode);
         setShowRating(true);
-      }
-    } else {
-      console.warn('No different episodes available for shuffling');
-      // Enhanced fallback: Use semantic search expansion
-      try {
-        console.log('🔄 Expanding search with new service...');
         
-        // Use the podcast service to get additional episodes
-        const additionalEpisodes = await podcastService.searchEpisodes(selectedMoods, selectedThemes, duration);
-        
-        // Remove duplicates and combine with existing episodes
-        const allCombined = [...allEpisodes, ...additionalEpisodes];
-        const uniqueCombined = allCombined.filter((episode, index, self) => 
-          self.findIndex(e => e.id === episode.id) === index
-        );
-        
-        if (uniqueCombined.length > allEpisodes.length) {
-          console.log(`📈 Expanded pool: ${allEpisodes.length} → ${uniqueCombined.length} episodes`);
-          setAllEpisodes(uniqueCombined);
-          
-          const newRankedEpisodes = await rankEpisodes(uniqueCombined, selectedMoods, selectedThemes, duration);
-          const newAvailableEpisodes = newRankedEpisodes.filter(ep => ep.id !== matchedEpisode?.id);
-          
-          if (newAvailableEpisodes.length > 0) {
-            // Use smart selection from expanded pool
-            const selectionIndex = Math.floor(Math.random() * Math.min(25, newAvailableEpisodes.length));
-            const expandedSelection = newAvailableEpisodes[selectionIndex];
-            setMatchedEpisode(expandedSelection);
-            setShowRating(true);
-            console.log(`🎉 Expanded pool selection: rank ${selectionIndex + 1} (score: ${expandedSelection.score})`);
-          }
-        } else {
-          console.log('No additional unique episodes found');
+        // If we've shown all options, clear them for next shuffle
+        if (nextIndex === 0) {
+          console.log('🔄 All shuffle options shown, will generate new ones next time');
+          setShuffleOptions([]);
         }
-      } catch (error) {
-        console.error('Enhanced fallback search failed:', error);
+      }
+    } catch (error) {
+      console.error('Enhanced shuffle failed:', error);
+      
+      // Fallback to simple random selection
+      const availableEpisodes = allEpisodes.filter(ep => 
+        ep.id !== matchedEpisode?.id && 
+        !previouslyShownEpisodes.has(ep.id)
+      );
+      if (availableEpisodes.length > 0) {
+        const rankedEpisodes = await rankEpisodes(availableEpisodes, selectedMoods, selectedThemes, duration);
+        const fallbackSelection = rankedEpisodes[Math.floor(Math.random() * Math.min(10, rankedEpisodes.length))];
+        setMatchedEpisode(fallbackSelection);
+        setShowRating(true);
+        setPreviouslyShownEpisodes(prev => new Set([...prev, fallbackSelection.id]));
+        console.log(`🔄 Fallback selection: "${fallbackSelection.title}"`);
+      } else {
+        alert('No more unique episodes available. Try a new search!');
       }
     }
   };
@@ -742,44 +753,87 @@ export default function Vibecast() {
     setShowRating(false);
   };
 
-  // New function to handle Listen Notes playback
-  const handleListenNotesPlay = (episode: ScoredEpisode) => {
-    if (episode.external_url) {
-      window.open(episode.external_url, '_blank');
-    }
-  };
-
-  // New function to handle Spotify playback
+  // Fixed function to handle Spotify playback
   const handleSpotifyPlay = (episode: ScoredEpisode) => {
-    if (episode.spotify_uri && spotifyService.isAuthenticated()) {
-      // Try native playback first
-      spotifyService.playEpisode(episode.spotify_uri)
-        .then(() => {
-          console.log('✅ Episode playing on Spotify');
-        })
-        .catch((error) => {
-          console.warn('Native playback failed, opening Spotify web player:', error);
-          // Fallback to web player
-          if (episode.external_url) {
-            window.open(episode.external_url, '_blank');
-          } else if (episode.spotify_url) {
-            window.open(episode.spotify_url, '_blank');
-          }
-        });
-    } else {
-      // Open in Spotify web/app
-      if (episode.external_url) {
-        window.open(episode.external_url, '_blank');
-      } else if (episode.spotify_url) {
-        window.open(episode.spotify_url, '_blank');
+    console.log('🎵 Attempting to open Spotify for:', episode.title);
+    
+    try {
+      // First try to use the Spotify URI if available
+      if (episode.spotify_uri) {
+        console.log('🎵 Using Spotify URI:', episode.spotify_uri);
+        
+        // Convert Spotify URI to web URL
+        let spotifyUrl = '';
+        if (episode.spotify_uri.startsWith('spotify:episode:')) {
+          const episodeId = episode.spotify_uri.replace('spotify:episode:', '');
+          spotifyUrl = `https://open.spotify.com/episode/${episodeId}`;
+        } else if (episode.spotify_uri.startsWith('spotify:show:')) {
+          const showId = episode.spotify_uri.replace('spotify:show:', '');
+          spotifyUrl = `https://open.spotify.com/show/${showId}`;
+        } else if (episode.spotify_uri.startsWith('https://open.spotify.com/')) {
+          spotifyUrl = episode.spotify_uri;
+        }
+        
+        if (spotifyUrl) {
+          console.log('🎵 Opening Spotify web player:', spotifyUrl);
+          window.open(spotifyUrl, '_blank');
+          return;
+        }
       }
+      
+      // Try to use platform_links Spotify URL if available
+      if (episode.platform_links?.spotify) {
+        console.log('🎵 Using platform Spotify URL:', episode.platform_links.spotify);
+        window.open(episode.platform_links.spotify, '_blank');
+        return;
+      }
+      
+      // Fallback: Try to use external_url if it's a Spotify URL
+      if (episode.external_url && episode.external_url.includes('spotify.com')) {
+        console.log('🎵 Using external Spotify URL:', episode.external_url);
+        window.open(episode.external_url, '_blank');
+        return;
+      }
+      
+      // Final fallback: Search for the specific episode
+      const searchQuery = encodeURIComponent(`${episode.podcast_name} ${episode.title}`);
+      const searchUrl = `https://open.spotify.com/search/${searchQuery}/episodes`;
+      console.log('🎵 Searching Spotify for episode:', searchUrl);
+      window.open(searchUrl, '_blank');
+      
+    } catch (error) {
+      console.error('Failed to open Spotify:', error);
+      // Ultimate fallback: search for the podcast
+      const searchQuery = encodeURIComponent(episode.podcast_name);
+      const searchUrl = `https://open.spotify.com/search/${searchQuery}/shows`;
+      window.open(searchUrl, '_blank');
     }
   };
 
-  // New function to handle Apple Podcasts playback
-  const handleApplePodcastsPlay = (episode: ScoredEpisode) => {
-    if (episode.apple_podcasts_url) {
-      window.open(episode.apple_podcasts_url, '_blank');
+  // Fixed function to handle Apple Podcasts playback
+  const handleApplePodcastsPlay = async (episode: ScoredEpisode) => {
+    console.log('🍎 Attempting to open Apple Podcasts for:', episode.title);
+    
+    try {
+      // Try to use the Apple Podcasts URL if available
+      if (episode.platform_links?.apple) {
+        console.log('🍎 Using Apple Podcasts URL:', episode.platform_links.apple);
+        window.open(episode.platform_links.apple, '_blank');
+        return;
+      }
+      
+      // Generate a search URL for the specific episode
+      const searchQuery = encodeURIComponent(`${episode.podcast_name} ${episode.title}`);
+      const searchUrl = `https://podcasts.apple.com/search?term=${searchQuery}`;
+      console.log('🍎 Searching Apple Podcasts for episode:', searchUrl);
+      window.open(searchUrl, '_blank');
+      
+    } catch (error) {
+      console.error('Failed to open Apple Podcasts:', error);
+      // Fallback: search for the podcast
+      const searchQuery = encodeURIComponent(episode.podcast_name);
+      const searchUrl = `https://podcasts.apple.com/search?term=${searchQuery}`;
+      window.open(searchUrl, '_blank');
     }
   };
 
@@ -801,7 +855,7 @@ export default function Vibecast() {
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center justify-center w-full">
               <img 
-                src={vibeLogo}
+                src="../assets/images/Vibe.png"
                 alt="Vibecast Logo" 
                 className="h-48 w-auto object-contain max-w-full"
               />
@@ -976,6 +1030,12 @@ export default function Vibecast() {
                     <div className="flex-1">
                       <h3 className="font-bold text-xl text-gray-800 mb-2 leading-tight">
                         {matchedEpisode.title || 'Untitled Episode'}
+                        {matchedEpisode.is_top_quality && (
+                          <span className="ml-2 inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-xs font-bold rounded-full shadow-sm">
+                            <span className="text-xs">⭐</span>
+                            TOP CHARTS
+                          </span>
+                        )}
                       </h3>
                       <p className="text-[#ff6b6b] font-semibold text-sm mb-1">
                         {matchedEpisode.podcast_name || 'Unknown Podcast'}
@@ -987,37 +1047,6 @@ export default function Vibecast() {
                   </div>
                   
                   <ExpandableDescription description={matchedEpisode.description || 'No description available'} />
-                  
-                  {/* Enhanced Algorithm Intelligence Display */}
-                  <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/80 rounded-2xl p-4 mb-4 border border-indigo-200/50 backdrop-blur-sm">
-                    <h4 className="text-sm font-semibold text-indigo-900 mb-3 flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-indigo-600" />
-                      VibeCast 2.0 Intelligence Match
-                    </h4>
-                    
-                    {/* Match Score */}
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm text-indigo-800 font-medium">Match Quality:</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-16 h-2 bg-indigo-100 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
-                            style={{ width: `${Math.min(100, (matchedEpisode.score / 100) * 100)}%` }}
-                          />
-                        </div>
-                        <span className="text-sm font-bold text-indigo-700">
-                          {Math.round((matchedEpisode.score / 100) * 100)}%
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {/* Match Reasons */}
-                    {matchedEpisode.matchReason && (
-                      <div className="text-xs text-indigo-700 leading-relaxed">
-                        <strong>Why this matches:</strong> {matchedEpisode.matchReason}
-                      </div>
-                    )}
-                  </div>
                   
                   {/* Display the filters used */}
                   <div className="bg-gradient-to-r from-[#ffcccb]/70 via-[#ffd7d7]/60 to-[#ffe4e1]/70 rounded-2xl p-4 mb-4 border border-[#ff9999]/50 backdrop-blur-sm">
@@ -1090,15 +1119,6 @@ export default function Vibecast() {
                         <ApplePodcastsIcon size={20} />
                         <span>Listen on Apple Podcasts</span>
                       </button>
-
-                      {/* Listen Notes Button */}
-                      <button
-                        onClick={() => handleListenNotesPlay(matchedEpisode)}
-                        className="flex items-center justify-center gap-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 px-4 rounded-full font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 transform hover:scale-[1.02] shadow-lg"
-                      >
-                        <ExternalLink size={18} />
-                        <span>Listen Elsewhere</span>
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -1110,7 +1130,12 @@ export default function Vibecast() {
                     className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#ff6b6b] to-[#ff8e8e] text-white py-4 px-6 rounded-full font-semibold hover:from-[#ff5252] hover:to-[#ff7575] transition-all duration-200 transform hover:scale-[1.02] shadow-lg"
                   >
                     <Shuffle size={20} />
-                    Shuffle
+                    <span>
+                      {shuffleOptions.length > 0 
+                        ? `Shuffle (${currentShuffleIndex + 1}/${shuffleOptions.length})`
+                        : 'Shuffle'
+                      }
+                    </span>
                   </button>
                   
                   <button
@@ -1119,6 +1144,10 @@ export default function Vibecast() {
                       setShowRating(false);
                       setSelectedMoods([]);
                       setSelectedThemes([]);
+                      // NEW: Reset shuffle tracking for new search
+                      setPreviouslyShownEpisodes(new Set());
+                      setShuffleOptions([]);
+                      setCurrentShuffleIndex(0);
                     }}
                     className="flex-1 bg-[#fdfaf7]/90 backdrop-blur-sm text-gray-700 py-4 px-6 rounded-full font-semibold hover:bg-[#fdfaf7] transition-all duration-200 transform hover:scale-[1.02] border border-[#c8d1fa]"
                   >
@@ -1140,9 +1169,9 @@ export default function Vibecast() {
           )}
         </div>
 
-        {/* Footer - Listen Notes Attribution */}
+        {/* Footer - Spotify Attribution */}
         <div className="text-center p-6 border-t border-[#c8d1fa]/50 bg-[#fdfaf7]/80 backdrop-blur-sm">
-          <p className="text-sm text-gray-600">Discover podcasts powered by Listen Notes</p>
+          <p className="text-sm text-gray-600">Discover podcasts powered by Spotify</p>
           <p className="text-xs text-gray-500 mt-1">Listen on your favorite platform</p>
         </div>
       </div>

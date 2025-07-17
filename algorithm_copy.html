@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeCast 2.1 Algorithm Analysis</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #2c3e50;
+        }
+        code {
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+        pre {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        .copy-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 20px 0;
+            transition: background 0.3s;
+        }
+        .copy-btn:hover {
+            background: #2980b9;
+        }
+        .copy-btn:active {
+            transform: translateY(1px);
+        }
+        .success {
+            background: #27ae60 !important;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .metric-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        .strength {
+            border-left-color: #27ae60;
+        }
+        .weakness {
+            border-left-color: #e74c3c;
+        }
+        .recommendation {
+            border-left-color: #f39c12;
+        }
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .countries {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .country {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .flag {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 VibeCast 2.1 Algorithm Analysis</h1>
+        
+        <button class="copy-btn" onclick="copyAll()">📋 Copy Complete Analysis</button>
+        
+        <div id="content">
+            <h2>📊 Complete Algorithm Breakdown for Efficiency Analysis</h2>
+
+            <h3>1. Search Strategy (Multi-Market Category-Based)</h3>
+            <pre><code>// SEARCH ALGORITHM
+const markets = ['US', 'AU', 'GB', 'CA', 'NZ', 'IE', 'ZA']; // 7 markets
+const expandedSearchTerms = query === 'comedy' ? ['comedy', 'entertainment', 'talk'] : [query];
+
+// For each market (7 iterations)
+for (const market of markets) {
+  // For each search term (1-3 iterations)
+  for (const searchTerm of expandedSearchTerms) {
+    // 1. Genre-based search
+    const genreSearch = `genre:${spotifyGenre}`;
+    // 2. Direct category search  
+    const directSearch = searchTerm;
+  }
+}</code></pre>
+            <p><strong>Search Volume:</strong> <code>7 markets × 2 search types × 1-3 terms = 14-42 API calls per query</code></p>
+
+            <h3>2. Efficiency Analysis</h3>
+            <div class="metrics">
+                <div class="metric-card strength">
+                    <h4>✅ Strengths:</h4>
+                    <ul>
+                        <li><strong>Comprehensive Coverage:</strong> Searches all major English-speaking markets</li>
+                        <li><strong>Category-Based:</strong> No keyword matching (efficient)</li>
+                        <li><strong>Deduplication:</strong> Removes duplicates across markets</li>
+                        <li><strong>Quality Filtering:</strong> Filters low-quality content early</li>
+                    </ul>
+                </div>
+                <div class="metric-card weakness">
+                    <h4>⚠️ Potential Issues:</h4>
+                    <ul>
+                        <li><strong>High API Usage:</strong> 14-42 calls per search (could hit rate limits)</li>
+                        <li><strong>Sequential Execution:</strong> Not parallel (slower)</li>
+                        <li><strong>No Caching:</strong> Repeats searches for same categories</li>
+                        <li><strong>Fixed Limits:</strong> 15 results per search (might miss good content)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>3. Quality Filtering Algorithm</h3>
+            <pre><code>// QUALITY FILTERING
+const qualityShows = uniqueShows.filter(show => {
+  // Basic quality checks
+  if (!show.name || show.name.length < 3) return false;
+  if (!show.description || show.description.length < 20) return false;
+  if (!show.publisher || show.publisher.length < 2) return false;
+  if (show.total_episodes < 5) return false;
+  
+  // Kids content filtering
+  const kidsKeywords = ['kids', 'children', 'family', ...];
+  const hasKidsContent = kidsKeywords.some(keyword => 
+    title.includes(keyword) || description.includes(keyword) || publisher.includes(keyword)
+  );
+  
+  return !hasKidsContent;
+});</code></pre>
+
+            <h3>4. Scoring Algorithm</h3>
+            <pre><code>// SCORING WEIGHTS
+const weights = {
+  categoryRelevance: 0.40,  // Trust search results
+  popularityScore: 0.25,    // Spotify popularity
+  durationScore: 0.20,      // Duration matching
+  personalFit: 0.20,        // User preferences
+  topQualityBonus: 0.15,    // Chart position
+  qualitySignals: 0.10,     // Production quality
+  diversityBonus: 0.05      // Prevent repetition
+};</code></pre>
+
+            <h3>5. Performance Metrics</h3>
+            <div class="metrics">
+                <div class="metric-card">
+                    <h4>Time Complexity:</h4>
+                    <ul>
+                        <li><strong>Search Phase:</strong> O(7 × 2 × 1-3) = O(14-42) API calls</li>
+                        <li><strong>Filtering Phase:</strong> O(n) where n = total results</li>
+                        <li><strong>Scoring Phase:</strong> O(n) for each result</li>
+                        <li><strong>Overall:</strong> O(n) where n = number of podcasts found</li>
+                    </ul>
+                </div>
+                <div class="metric-card">
+                    <h4>Space Complexity:</h4>
+                    <ul>
+                        <li><strong>Storage:</strong> O(n) for storing results</li>
+                        <li><strong>Deduplication:</strong> O(n) for filtering duplicates</li>
+                        <li><strong>Quality Filtering:</strong> O(n) for filtering</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>6. Market Coverage Analysis</h3>
+            <div class="countries">
+                <div class="country">
+                    <div class="flag">🇺🇸</div>
+                    <strong>United States (US)</strong><br>
+                    Largest podcast library
+                </div>
+                <div class="country">
+                    <div class="flag">🇦🇺</div>
+                    <strong>Australia (AU)</strong><br>
+                    Hamish and Andy, Toni and Ryan, The Project
+                </div>
+                <div class="country">
+                    <div class="flag">🇬🇧</div>
+                    <strong>United Kingdom (GB)</strong><br>
+                    BBC, British comedy and news
+                </div>
+                <div class="country">
+                    <div class="flag">🇨🇦</div>
+                    <strong>Canada (CA)</strong><br>
+                    CBC, Canadian content
+                </div>
+                <div class="country">
+                    <div class="flag">🇳🇿</div>
+                    <strong>New Zealand (NZ)</strong><br>
+                    RNZ, Kiwi podcasts
+                </div>
+                <div class="country">
+                    <div class="flag">🇮🇪</div>
+                    <strong>Ireland (IE)</strong><br>
+                    RTÉ, Irish content
+                </div>
+                <div class="country">
+                    <div class="flag">🇿🇦</div>
+                    <strong>South Africa (ZA)</strong><br>
+                    702, South African shows
+                </div>
+            </div>
+
+            <h3>7. Algorithm Efficiency Score</h3>
+            <div class="score">Current Efficiency Score: 7/10</div>
+            <div class="metrics">
+                <div class="metric-card">
+                    <h4>Coverage: 10/10</h4>
+                    Comprehensive global search
+                </div>
+                <div class="metric-card">
+                    <h4>Speed: 5/10</h4>
+                    Sequential execution slows it down
+                </div>
+                <div class="metric-card">
+                    <h4>API Efficiency: 4/10</h4>
+                    High number of calls
+                </div>
+                <div class="metric-card">
+                    <h4>Quality: 9/10</h4>
+                    Excellent filtering
+                </div>
+                <div class="metric-card">
+                    <h4>Scalability: 6/10</h4>
+                    Could be optimized
+                </div>
+            </div>
+
+            <h3>8. Bottlenecks Identified</h3>
+            <ol>
+                <li><strong>API Rate Limiting:</strong> 14-42 calls per search</li>
+                <li><strong>Sequential Execution:</strong> Not utilizing parallel processing</li>
+                <li><strong>No Caching:</strong> Repeats expensive API calls</li>
+                <li><strong>Fixed Search Strategy:</strong> Doesn't adapt based on category popularity</li>
+            </ol>
+
+            <h3>9. Recommended Improvements</h3>
+            <div class="metrics">
+                <div class="metric-card recommendation">
+                    <h4>Immediate (High Impact):</h4>
+                    <ul>
+                        <li>Implement parallel API calls</li>
+                        <li>Add result caching (TTL: 1 hour)</li>
+                        <li>Dynamic search limits per category</li>
+                    </ul>
+                </div>
+                <div class="metric-card recommendation">
+                    <h4>Medium Term:</h4>
+                    <ul>
+                        <li>Implement smart batching</li>
+                        <li>Add search result ranking optimization</li>
+                        <li>Category-specific search strategies</li>
+                    </ul>
+                </div>
+                <div class="metric-card recommendation">
+                    <h4>Long Term:</h4>
+                    <ul>
+                        <li>Machine learning for user preference learning</li>
+                        <li>Predictive caching based on popular searches</li>
+                        <li>A/B testing for algorithm optimization</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>10. Complete Algorithm Code</h3>
+            <pre><code>// VIBECAST 2.1 SEARCH ALGORITHM
+async searchPodcasts(query: string, limit: number = 20): Promise<SpotifyPodcast[]> {
+  const markets = ['US', 'AU', 'GB', 'CA', 'NZ', 'IE', 'ZA'];
+  const expandedSearchTerms = query.toLowerCase() === 'comedy' 
+    ? ['comedy', 'entertainment', 'talk'] 
+    : [query];
+  
+  let allShows: any[] = [];
+  
+  // Multi-market search
+  for (const market of markets) {
+    for (const searchTerm of expandedSearchTerms) {
+      const spotifyGenre = genreMapping[searchTerm.toLowerCase()] || searchTerm;
+      
+      // Genre-based search
+      const genreSearchUrl = new URL('https://api.spotify.com/v1/search');
+      genreSearchUrl.searchParams.append('q', `genre:${spotifyGenre}`);
+      genreSearchUrl.searchParams.append('type', 'show');
+      genreSearchUrl.searchParams.append('limit', '15');
+      genreSearchUrl.searchParams.append('market', market);
+      
+      const response = await fetch(genreSearchUrl.toString(), {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const shows = data.shows?.items || [];
+        allShows.push(...shows);
+      }
+      
+      // Direct category search
+      const directSearchUrl = new URL('https://api.spotify.com/v1/search');
+      directSearchUrl.searchParams.append('q', searchTerm);
+      directSearchUrl.searchParams.append('type', 'show');
+      directSearchUrl.searchParams.append('limit', '15');
+      directSearchUrl.searchParams.append('market', market);
+      
+      const directResponse = await fetch(directSearchUrl.toString(), {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      
+      if (directResponse.ok) {
+        const data = await directResponse.json();
+        const shows = data.shows?.items || [];
+        allShows.push(...shows);
+      }
+    }
+  }
+  
+  // Deduplication
+  const uniqueShows = allShows.filter((show, index, self) => 
+    self.findIndex(s => s.id === show.id) === index
+  );
+  
+  // Quality filtering
+  const qualityShows = uniqueShows.filter((show: any) => {
+    if (!show.name || show.name.length < 3) return false;
+    if (!show.description || show.description.length < 20) return false;
+    if (!show.publisher || show.publisher.length < 2) return false;
+    if (show.total_episodes < 5) return false;
+    
+    // Kids content filtering
+    const title = (show.name || '').toLowerCase();
+    const description = (show.description || '').toLowerCase();
+    const publisher = (show.publisher || '').toLowerCase();
+    
+    const kidsKeywords = [
+      'kids', 'children', 'child', 'family', 'bedtime', 'storytime',
+      'nursery', 'toddler', 'preschool', 'kindergarten', 'elementary',
+      'disney', 'cartoon', 'fairy tale', 'bedtime story', 'lullaby',
+      'parenting', 'mom', 'dad', 'baby', 'infant', 'teen', 'teenager',
+      'young adult', 'youth', 'educational for kids', 'learn for kids'
+    ];
+    
+    const hasKidsContent = kidsKeywords.some(keyword => 
+      title.includes(keyword) || 
+      description.includes(keyword) || 
+      publisher.includes(keyword)
+    );
+    
+    return !hasKidsContent;
+  }).sort((a: any, b: any) => {
+    // Sort by popularity
+    const aPopularity = a.popularity || 0;
+    const bPopularity = b.popularity || 0;
+    return bPopularity - aPopularity;
+  });
+  
+  return qualityShows.map((show: any) => ({
+    id: show.id,
+    name: show.name,
+    description: show.description || '',
+    publisher: show.publisher || '',
+    images: show.images || [],
+    total_episodes: show.total_episodes || 0,
+    external_urls: show.external_urls || { spotify: '' },
+    popularity: show.popularity || 0,
+    explicit: show.explicit || false,
+    languages: show.languages || [],
+    media_type: show.media_type || 'audio',
+  }));
+}</code></pre>
+
+            <h3>11. Summary</h3>
+            <div class="metrics">
+                <div class="metric-card">
+                    <h4>Current State:</h4>
+                    Good coverage with room for optimization
+                </div>
+                <div class="metric-card">
+                    <h4>Main Bottleneck:</h4>
+                    Sequential API calls (14-42 per search)
+                </div>
+                <div class="metric-card">
+                    <h4>Key Strength:</h4>
+                    Comprehensive global market coverage
+                </div>
+                <div class="metric-card">
+                    <h4>Priority Fix:</h4>
+                    Implement parallel execution and caching
+                </div>
+            </div>
+
+            <p><strong>Efficiency Score: 7/10</strong> - Good coverage but could be optimized for speed and API usage.</p>
+        </div>
+    </div>
+
+    <script>
+        function copyAll() {
+            const content = document.getElementById('content').innerText;
+            navigator.clipboard.writeText(content).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                btn.textContent = '✅ Copied!';
+                btn.classList.add('success');
+                setTimeout(() => {
+                    btn.textContent = '📋 Copy Complete Analysis';
+                    btn.classList.remove('success');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                alert('Failed to copy to clipboard. Please select and copy manually.');
+            });
+        }
+    </script>
+</body>
+</html> 

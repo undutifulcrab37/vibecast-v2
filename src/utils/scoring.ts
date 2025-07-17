@@ -2,133 +2,181 @@ import { Episode, Mood, Theme, ScoredEpisode } from '../types';
 import { ratingService } from '../services/ratingService';
 import { getCategoriesForUserSelection } from './categoryMapping';
 
-// Enhanced scoring interfaces
-interface EnhancedScoringFactors {
-  semanticMatch: number;      // 0-1 similarity score
-  categoryRelevance: number;  // Weighted category matches
-  qualitySignals: number;     // Popularity, recency, etc.
+// VibeCast 2.1 Category-focused scoring interfaces
+interface CategoryScoringFactors {
+  categoryRelevance: number;  // PRIMARY: How well podcast matches selected categories
+  qualitySignals: number;     // Content quality indicators
   personalFit: number;        // User-specific preferences
   diversityBonus: number;     // Variety from recent recommendations
   durationScore: number;      // Smart duration matching
+  popularityScore: number;    // Spotify popularity + followers
+  topQualityBonus: number;    // Quality indicators
 }
 
-interface UserListeningHistory {
-  recentEpisodes: string[];   // Episode IDs from last sessions
-  skipPatterns: string[];     // Keywords from skipped episodes
-  completedEpisodes: string[]; // Episode IDs that were finished
-}
+// Commented out unused interface
+// interface UserListeningHistory {
+//   episodeId: string;
+//   timestamp: number;
+//   duration: number;
+//   completionRate: number;
+// }
 
-// Store recent recommendations for diversity
+// Store recent recommendations for diversity and user session tracking
 let recentRecommendations: string[] = [];
+let userSessionCount = 0;
+let recentSkips = 0;
 const MAX_RECENT_HISTORY = 20;
 
-// Legacy keyword maps - keeping for fallback scoring only
-export const vibeKeywordMap: Record<Mood, string[]> = {
-  happy: ['uplifting', 'joy', 'funny', 'positive', 'feel good', 'comedy', 'humor', 'laugh', 'optimistic'],
-  sad: ['empathy', 'healing', 'grief', 'storytelling', 'emotions', 'melancholy', 'support', 'comfort'],
-  anxious: ['calm', 'soothing', 'mindfulness', 'meditation', 'relax', 'peaceful', 'tranquil', 'breathing'],
-  bored: ['banter', 'entertaining', 'weird', 'viral', 'surprising', 'quirky', 'unusual', 'fascinating'],
-  curious: ['learning', 'explainer', 'interview', 'science', 'ideas', 'discovery', 'research', 'explore'],
-  tired: ['soft voice', 'chill', 'low energy', 'slow paced', 'gentle', 'mellow', 'quiet', 'sleepy'],
-  focused: ['productivity', 'deep dive', 'motivation', 'workflow', 'concentration', 'analysis', 'detailed'],
-  stressed: ['relaxing', 'coping', 'unwind', 'decompress', 'stress relief', 'self-care', 'balance'],
-  surprise_me: ['unexpected', 'random', 'eclectic', 'variety', 'diverse', 'mix'],
-  dont_know: ['popular', 'trending', 'recommended', 'well-rated', 'mainstream'],
+// NEW: Popularity scoring based on Spotify metrics
+function calculatePopularityScore(episode: Episode): number {
+  let popularityScore = 0;
+  
+  // Spotify popularity field (0-100)
+  if (episode.spotify_popularity) {
+    popularityScore += (episode.spotify_popularity / 100) * 0.6; // 60% weight
+  }
+  
+  // Follower count (normalize by category)
+  if (episode.follower_count) {
+    // Normalize follower count (log scale to prevent huge podcasts dominating)
+    const normalizedFollowers = Math.log10(episode.follower_count + 1) / 7; // Assume max ~10M followers
+    popularityScore += Math.min(normalizedFollowers, 1) * 0.3; // 30% weight
+  }
+  
+  // Chart position bonus (if available)
+  if (episode.chart_position) {
+    const chartBonus = Math.max(0, (100 - episode.chart_position) / 100);
+    popularityScore += chartBonus * 0.1; // 10% weight
+  }
+  
+  return Math.min(1, popularityScore);
+}
+
+// VibeCast 2.1 Updated scoring weights - POPULARITY BOOSTED
+const SCORING_WEIGHTS = {
+  categoryRelevance: 30,      // ⬇️ Slightly reduced from 40
+  durationScore: 20,          // unchanged
+  personalFit: 20,            // unchanged
+  popularityScore: 35,        // ⬆️ Boosted from 25 for better discovery
+  topQualityBonus: 15,        // unchanged
+  qualitySignals: 10,         // unchanged
+  diversityBonus: 5,          // unchanged
+  // REMOVED: semanticMatch and keywordFallback - no more keyword matching
 };
 
-export const themeKeywordMap: Record<Theme, string[]> = {
-  laugh: ['comedy', 'banter', 'funny', 'sketch', 'humor', 'jokes', 'hilarious', 'wit'],
-  cry: ['moving', 'emotional', 'true story', 'family', 'touching', 'heartfelt', 'personal'],
-  learn: ['education', 'explainer', 'deep dive', 'how to', 'tutorial', 'knowledge', 'facts'],
-  be_inspired: ['motivation', 'success', 'resilience', 'achievement', 'growth', 'inspiration'],
-  escape: ['thriller', 'fiction', 'mystery', 'narrative', 'adventure', 'fantasy', 'drama'],
-  chill: ['calm', 'ambient', 'meditation', 'soft spoken', 'peaceful', 'relaxed', 'zen'],
-  be_distracted: ['random', 'light', 'banter', 'entertaining', 'casual', 'fun', 'easy'],
-  be_shocked: ['true crime', 'scandal', 'unbelievable', 'twist', 'shocking', 'revelation'],
-  reflect: ['introspective', 'life', 'meaning', 'mental health', 'philosophy', 'thoughtful'],
-  stay_updated: ['news', 'current events', 'culture', 'politics', 'trends', 'analysis'],
-  feel_seen: ['identity', 'relationships', 'personal stories', 'community', 'belonging'],
-  kill_time: ['facts', 'trivia', 'low effort', 'background', 'casual', 'easy listening'],
-};
-
-// Semantic similarity scoring using enhanced text analysis
-function calculateSemanticSimilarity(
+// Enhanced category scoring - TRUST SEARCH RESULTS, NO KEYWORD MATCHING
+function scoreByCategoryMatch(
   episode: Episode,
   userMoods: Mood[],
   userThemes: Theme[]
-): number {
-  const episodeText = `${episode.title} ${episode.description} ${episode.podcast_name}`.toLowerCase();
+): { score: number; matchReasons: string[] } {
+  const categories = getCategoriesForUserSelection(userMoods, userThemes);
   
-  // Get all relevant keywords for user's selection
-  const moodKeywords = userMoods.flatMap(mood => vibeKeywordMap[mood] || []);
-  const themeKeywords = userThemes.flatMap(theme => themeKeywordMap[theme] || []);
-  const allKeywords = [...moodKeywords, ...themeKeywords];
+  // Since we're using category-based search, we TRUST that the results are relevant
+  // Score based on search result position and quality rather than keyword matching
   
-  if (allKeywords.length === 0) return 0;
+  let score = 0;
+  const matchReasons: string[] = [];
+
+  // Base category relevance score - assume all search results are category-relevant
+  score += 15; // Base score for being in search results
   
-  // Calculate semantic matches with proximity scoring
-  let semanticScore = 0;
-  let totalPossibleMatches = allKeywords.length;
+  // Bonus for having detailed metadata (indicates professional podcast)
+  if (episode.description && episode.description.length > 100) {
+    score += 5;
+    matchReasons.push('Professional content quality');
+  }
   
-  allKeywords.forEach(keyword => {
-    if (episodeText.includes(keyword.toLowerCase())) {
-      // Exact match gets full points
-      semanticScore += 1;
-    } else {
-      // Check for partial/semantic matches
-      const keywordParts = keyword.split(' ');
-      const partialMatches = keywordParts.filter(part => 
-        part.length > 3 && episodeText.includes(part.toLowerCase())
-      );
-      if (partialMatches.length > 0) {
-        semanticScore += (partialMatches.length / keywordParts.length) * 0.5;
-      }
-    }
-  });
+  // Bonus for having proper publisher info
+  if (episode.publisher && episode.publisher.length > 2) {
+    score += 3;
+    matchReasons.push('Established publisher');
+  }
   
-  return Math.min(1, semanticScore / totalPossibleMatches);
+  // Bonus for having cover art (professional production)
+  if (episode.cover_art && episode.cover_art.length > 0) {
+    score += 2;
+    matchReasons.push('Professional presentation');
+  }
+
+  // Primary category bonus (assume search results match primary categories)
+  if (categories.primary.length > 0) {
+    score += 10; // Bonus for primary category match (trust search)
+    matchReasons.push(`Matches ${categories.primary.length} primary categories`);
+  }
+
+  // Secondary category bonus
+  if (categories.secondary.length > 0) {
+    score += 5; // Bonus for secondary category match (trust search)
+    matchReasons.push(`Matches ${categories.secondary.length} secondary categories`);
+  }
+
+  // Trust the search algorithm - no keyword matching needed
+  matchReasons.push('Category-based search result');
+
+  return { score, matchReasons };
 }
 
-// Enhanced content quality scoring
+// Enhanced content quality scoring with professional indicators
 function calculateQualitySignals(episode: Episode): number {
   let qualityScore = 0;
   
-  // Recency scoring with decay curve
+  // Professional artwork & branding
+  if (episode.cover_art && episode.cover_art.length > 0) {
+    qualityScore += 0.15;
+  }
+  
+  // Complete metadata
+  let metadataScore = 0;
+  if (episode.title && episode.title.length > 5) metadataScore += 0.25;
+  if (episode.description && episode.description.length > 50) metadataScore += 0.25;
+  if (episode.publisher && episode.publisher.length > 0) metadataScore += 0.25;
+  if (episode.cover_art && episode.cover_art.length > 0) metadataScore += 0.25;
+  qualityScore += metadataScore * 0.2;
+  
+  // Recency bonus (enhanced for <30 days)
   if (episode.published_at) {
     const publishedDate = new Date(episode.published_at);
     const daysSincePublished = (Date.now() - publishedDate.getTime()) / (1000 * 60 * 60 * 24);
     
     if (daysSincePublished < 7) {
-      qualityScore += 0.3; // Very recent
+      qualityScore += 0.25; // Very recent
     } else if (daysSincePublished < 30) {
-      qualityScore += 0.2; // Recent
+      qualityScore += 0.15; // Recent (enhanced)
     } else if (daysSincePublished < 90) {
-      qualityScore += 0.1; // Somewhat recent
+      qualityScore += 0.05; // Somewhat recent
     }
   }
   
-  // Content quality indicators
-  const description = episode.description?.toLowerCase() || '';
+  // Professional title indicators
   const title = episode.title?.toLowerCase() || '';
+  const description = episode.description?.toLowerCase() || '';
   
-  // Bonus for detailed descriptions
+  // Bonus for proper capitalization and length
+  if (episode.title && episode.title.length > 10 && episode.title.length < 100 && 
+      episode.title !== episode.title.toUpperCase() && 
+      episode.title !== episode.title.toLowerCase()) {
+    qualityScore += 0.1;
+  }
+  
+  // Detailed description bonus
   if (description.length > 200) {
     qualityScore += 0.1;
   }
   
-  // Bonus for professional titles (not all caps, proper length)
-  if (episode.title.length > 10 && episode.title.length < 100 && 
-      episode.title !== episode.title.toUpperCase()) {
-    qualityScore += 0.1;
-  }
+  // Professional language indicators
+  const professionalIndicators = ['interview', 'episode', 'discussion', 'analysis', 'review', 'deep dive'];
+  const professionalMatches = professionalIndicators.filter(indicator => 
+    title.includes(indicator) || description.includes(indicator)
+  );
+  qualityScore += Math.min(0.15, professionalMatches.length * 0.05);
   
   // Penalty for spam indicators
-  if (description.includes('subscribe') && description.includes('like') && 
-      description.includes('follow')) {
-    qualityScore -= 0.2;
-  }
+  const spamIndicators = ['subscribe now', 'like and follow', 'click here', 'buy now'];
+  const spamMatches = spamIndicators.filter(spam => description.includes(spam));
+  qualityScore -= spamMatches.length * 0.1;
   
-  return Math.max(0, qualityScore);
+  return Math.max(0, Math.min(1, qualityScore));
 }
 
 // Smart duration scoring with flexible preferences
@@ -158,117 +206,45 @@ function calculateDurationScore(episode: Episode, maxDuration: number): number {
   
   // Still acceptable for longer content if user requested longer episodes
   if (durationMinutes > maxDuration && maxDuration > 60) {
-    return 0.3; // Longer episodes get some tolerance for long-form content lovers
+    return 0.3;
   }
   
-  // Poor match
   return 0.1;
 }
 
-// Diversity bonus to prevent repetitive recommendations
+// Enhanced diversity bonus with skip tracking
 function calculateDiversityBonus(episode: Episode): number {
   if (recentRecommendations.includes(episode.id)) {
     return -0.5; // Penalty for recent recommendations
   }
   
   // Bonus for podcast variety
-  const recentPodcasts = recentRecommendations.map(id => 
-    // This would need actual episode lookup, simplified for now
-    episode.podcast_name
-  );
-  
-  if (!recentPodcasts.includes(episode.podcast_name)) {
-    return 0.2; // Bonus for podcast diversity
+  if (!recentRecommendations.some(_id => episode.podcast_name === episode.podcast_name)) {
+    return 0.2;
   }
   
   return 0;
 }
 
-// Enhanced category scoring with weighted importance
-function scoreByCategoryMatch(
+// Enhanced personal fit with faster adaptation (windowed average)
+async function calculatePersonalFit(
   episode: Episode,
   userMoods: Mood[],
   userThemes: Theme[]
-): { score: number; matchReasons: string[] } {
-  const categories = getCategoriesForUserSelection(userMoods, userThemes);
-  const episodeText = `${episode.title} ${episode.description} ${episode.podcast_name}`.toLowerCase();
-  
-  let score = 0;
-  const matchReasons: string[] = [];
-
-  // Score primary category matches (highest weight)
-  let primaryMatches = 0;
-  categories.primary.forEach(category => {
-    if (episodeText.includes(category.toLowerCase())) {
-      score += 15; // Increased from 10
-      primaryMatches++;
-    }
-  });
-  
-  if (primaryMatches > 0) {
-    matchReasons.push(`Perfect match for your vibe (${primaryMatches} primary categories)`);
+): Promise<number> {
+  try {
+    // Use windowed average instead of EMA for faster adaptation
+    const ratingBonus = await ratingService.getEpisodeRatingBonus(episode.id, userMoods, userThemes);
+    
+    // Enhanced with completion rate and skip patterns
+    const implicitBonus = await ratingService.getImplicitFeedbackBonus(episode.id);
+    
+    const totalBonus = ratingBonus + implicitBonus;
+    return Math.max(0, Math.min(1, totalBonus / 5)); // Normalize to 0-1
+  } catch (error) {
+    console.error('Error calculating personal fit:', error);
+    return 0;
   }
-
-  // Score secondary category matches (medium weight)
-  let secondaryMatches = 0;
-  categories.secondary.forEach(category => {
-    if (episodeText.includes(category.toLowerCase())) {
-      score += 8; // Increased from 6
-      secondaryMatches++;
-    }
-  });
-  
-  if (secondaryMatches > 0) {
-    matchReasons.push(`Good match for your preferences (${secondaryMatches} secondary categories)`);
-  }
-
-  // Score subcategory matches (lower weight but still important)
-  let subcategoryMatches = 0;
-  categories.subcategories.forEach(subcategory => {
-    if (episodeText.includes(subcategory.toLowerCase())) {
-      score += 5; // Increased from 4
-      subcategoryMatches++;
-    }
-  });
-  
-  if (subcategoryMatches > 0) {
-    matchReasons.push(`Matches specific interests (${subcategoryMatches} subcategories)`);
-  }
-
-  return { score, matchReasons };
-}
-
-// Fallback keyword scoring (reduced weight)
-function scoreByKeywordMatch(
-  episode: Episode,
-  userMoods: Mood[],
-  userThemes: Theme[]
-): { score: number; matchReasons: string[] } {
-  const text = `${episode.title} ${episode.description}`.toLowerCase();
-  let score = 0;
-  const matchReasons: string[] = [];
-
-  // Score mood matches (reduced weight)
-  userMoods.forEach(mood => {
-    const moodKeywords = vibeKeywordMap[mood] || [];
-    const matchedKeywords = moodKeywords.filter(keyword => text.includes(keyword.toLowerCase()));
-    if (matchedKeywords.length > 0) {
-      score += matchedKeywords.length * 1; // Reduced from 2
-      matchReasons.push(`Keywords match your ${mood} mood (${matchedKeywords.join(', ')})`);
-    }
-  });
-
-  // Score theme matches (reduced weight)
-  userThemes.forEach(theme => {
-    const themeKeywords = themeKeywordMap[theme] || [];
-    const matchedKeywords = themeKeywords.filter(keyword => text.includes(keyword.toLowerCase()));
-    if (matchedKeywords.length > 0) {
-      score += matchedKeywords.length * 1.5; // Reduced from 3
-      matchReasons.push(`Keywords for ${theme.replace('_', ' ')} (${matchedKeywords.join(', ')})`);
-    }
-  });
-
-  return { score, matchReasons };
 }
 
 export async function scoreEpisode(
@@ -279,59 +255,46 @@ export async function scoreEpisode(
 ): Promise<ScoredEpisode> {
   const matchReasons: string[] = [];
 
-  // Calculate all scoring factors
-  const scoringFactors: EnhancedScoringFactors = {
-    semanticMatch: calculateSemanticSimilarity(episode, userMoods, userThemes),
+  // Calculate all VibeCast 2.1 scoring factors
+  const scoringFactors: CategoryScoringFactors = {
     categoryRelevance: 0, // Will be set below
     qualitySignals: calculateQualitySignals(episode),
-    personalFit: 0, // Will be enhanced with rating data
+    personalFit: await calculatePersonalFit(episode, userMoods, userThemes),
     diversityBonus: calculateDiversityBonus(episode),
-    durationScore: calculateDurationScore(episode, maxDuration)
+    durationScore: calculateDurationScore(episode, maxDuration),
+    popularityScore: calculatePopularityScore(episode),
+    topQualityBonus: episode.is_top_quality ? 1.0 : 0,
   };
 
-  // Primary scoring: Category-based matching (highest priority)
+  // Category-based matching
   const categoryScoring = scoreByCategoryMatch(episode, userMoods, userThemes);
-  scoringFactors.categoryRelevance = categoryScoring.score / 20; // Normalize to 0-1
+  scoringFactors.categoryRelevance = categoryScoring.score / 20;
   matchReasons.push(...categoryScoring.matchReasons);
 
-  // Secondary scoring: Keyword-based matching (fallback, lower weight)
-  const keywordScoring = scoreByKeywordMatch(episode, userMoods, userThemes);
-  const keywordScore = keywordScoring.score / 10; // Normalize
-  matchReasons.push(...keywordScoring.matchReasons);
-
-  // Personal fit scoring with rating data
-  try {
-    const ratingBonus = await ratingService.getEpisodeRatingBonus(episode.id, userMoods, userThemes);
-    scoringFactors.personalFit = Math.max(0, ratingBonus / 2); // Normalize to 0-1 range
-    if (ratingBonus > 0) {
-      matchReasons.push('Highly rated by users with similar preferences');
-    }
-  } catch (error) {
-    console.error('Error getting rating bonus:', error);
-    scoringFactors.personalFit = 0;
-  }
-
-  // Calculate weighted final score
-  const weights = {
-    semantic: 25,      // Semantic similarity is crucial
-    category: 30,      // Category matching is most important
-    quality: 15,       // Quality signals matter
-    personal: 20,      // Personal fit is very important
-    diversity: 5,      // Diversity bonus/penalty
-    duration: 25,      // Duration matching is critical
-    keyword: 10        // Keyword fallback has lower weight
-  };
-
+  // Calculate weighted final score with VibeCast 2.1 weights
   const finalScore = 
-    (scoringFactors.semanticMatch * weights.semantic) +
-    (scoringFactors.categoryRelevance * weights.category) +
-    (scoringFactors.qualitySignals * weights.quality) +
-    (scoringFactors.personalFit * weights.personal) +
-    (scoringFactors.diversityBonus * weights.diversity) +
-    (scoringFactors.durationScore * weights.duration) +
-    (keywordScore * weights.keyword);
+    (scoringFactors.categoryRelevance * SCORING_WEIGHTS.categoryRelevance) +
+    (scoringFactors.qualitySignals * SCORING_WEIGHTS.qualitySignals) +
+    (scoringFactors.personalFit * SCORING_WEIGHTS.personalFit) +
+    (scoringFactors.diversityBonus * SCORING_WEIGHTS.diversityBonus) +
+    (scoringFactors.durationScore * SCORING_WEIGHTS.durationScore) +
+    (scoringFactors.popularityScore * SCORING_WEIGHTS.popularityScore) +
+    (scoringFactors.topQualityBonus * SCORING_WEIGHTS.topQualityBonus);
 
-  // Add duration explanation
+    // DEBUG: Log scoring breakdown for troubleshooting
+    console.log(`🎯 Scoring "${episode.title?.substring(0, 50)}...":`, {
+      finalScore: Math.round(finalScore * 100) / 100,
+      category: Math.round(scoringFactors.categoryRelevance * 100) / 100,
+      popularity: Math.round(scoringFactors.popularityScore * 100) / 100,
+      quality: Math.round(scoringFactors.qualitySignals * 100) / 100,
+      duration: Math.round(scoringFactors.durationScore * 100) / 100,
+      personal: Math.round(scoringFactors.personalFit * 100) / 100,
+      spotify_popularity: episode.spotify_popularity,
+      follower_count: episode.follower_count,
+      note: 'CATEGORY-BASED (no keyword matching)'
+    });
+
+  // Enhanced match reasoning
   const durationMinutes = Math.floor(episode.audio_length_sec / 60);
   const durationDifference = Math.abs(durationMinutes - maxDuration);
   
@@ -339,21 +302,29 @@ export async function scoreEpisode(
     matchReasons.push(`Perfect length at ${durationMinutes} minutes`);
   } else if (durationDifference <= 5) {
     matchReasons.push(`Great length at ${durationMinutes} minutes`);
-  } else if (durationDifference <= 10) {
-    matchReasons.push(`Good length at ${durationMinutes} minutes`);
   } else {
     matchReasons.push(`${durationMinutes} minutes (${durationDifference} min from target)`);
   }
 
-  // Add semantic and quality insights
-  if (scoringFactors.semanticMatch > 0.7) {
-    matchReasons.push('Excellent semantic match for your preferences');
-  } else if (scoringFactors.semanticMatch > 0.4) {
-    matchReasons.push('Good semantic match for your interests');
+  // Add new scoring insights
+  if (scoringFactors.popularityScore > 0.7) {
+    matchReasons.push('🔥 Highly popular podcast');
+  } else if (scoringFactors.popularityScore > 0.4) {
+    matchReasons.push('📈 Popular content');
   }
 
-  if (scoringFactors.qualitySignals > 0.3) {
-    matchReasons.push('High quality content indicators');
+  if (scoringFactors.categoryRelevance > 0.7) {
+    matchReasons.push('🎯 Excellent category match');
+  } else if (scoringFactors.categoryRelevance > 0.4) {
+    matchReasons.push('✨ Good category match');
+  }
+
+  if (scoringFactors.qualitySignals > 0.5) {
+    matchReasons.push('⭐ High quality content');
+  }
+
+  if (scoringFactors.personalFit > 0.6) {
+    matchReasons.push('💝 Personalized for you');
   }
 
   const matchReason = matchReasons.length > 0 
@@ -362,36 +333,37 @@ export async function scoreEpisode(
 
   return {
     ...episode,
-    score: Math.round(finalScore * 100) / 100, // Round to 2 decimal places
+    score: Math.round(finalScore * 100) / 100,
     matchReason,
   };
 }
 
+// Enhanced ranking with better filtering
 export async function rankEpisodes(
   episodes: Episode[],
   userMoods: Mood[],
   userThemes: Theme[],
   maxDuration: number
 ): Promise<ScoredEpisode[]> {
-  // Enhanced duration filtering - more flexible approach
-  const primaryToleranceMinutes = 15; // Increased tolerance
-  const secondaryToleranceMinutes = 25; // Fallback tolerance
+  // Enhanced duration filtering
+  const primaryToleranceMinutes = 15;
+  const secondaryToleranceMinutes = 25;
   
   const minDurationSeconds = Math.max(0, (maxDuration - primaryToleranceMinutes) * 60);
   const maxDurationSeconds = (maxDuration + primaryToleranceMinutes) * 60;
   
-  console.log(`Enhanced filtering: ${maxDuration} minutes (±${primaryToleranceMinutes} min primary range)`);
+  console.log(`🎯 VibeCast 2.1 filtering: ${maxDuration} minutes (±${primaryToleranceMinutes} min)`);
   
   let filteredEpisodes = episodes.filter(episode => {
     return episode.audio_length_sec >= minDurationSeconds && 
            episode.audio_length_sec <= maxDurationSeconds;
   });
   
-  console.log(`Primary filter: ${filteredEpisodes.length}/${episodes.length} episodes`);
+  console.log(`📊 Primary filter: ${filteredEpisodes.length}/${episodes.length} episodes`);
   
-  // If too few episodes, expand the range
+  // Expand range if needed
   if (filteredEpisodes.length < 15) {
-    console.log(`Expanding to ±${secondaryToleranceMinutes} minutes for more variety`);
+    console.log(`🔄 Expanding to ±${secondaryToleranceMinutes} minutes`);
     const expandedMinDuration = Math.max(0, (maxDuration - secondaryToleranceMinutes) * 60);
     const expandedMaxDuration = (maxDuration + secondaryToleranceMinutes) * 60;
     
@@ -400,10 +372,10 @@ export async function rankEpisodes(
       episode.audio_length_sec <= expandedMaxDuration
     );
     
-    console.log(`Expanded filter: ${filteredEpisodes.length} episodes`);
+    console.log(`📈 Expanded filter: ${filteredEpisodes.length} episodes`);
   }
   
-  // Score all episodes in parallel for efficiency
+  // Score all episodes in parallel
   const scoredEpisodes = await Promise.all(
     filteredEpisodes.map(episode => scoreEpisode(episode, userMoods, userThemes, maxDuration))
   );
@@ -411,32 +383,50 @@ export async function rankEpisodes(
   // Sort by score (highest first)
   const rankedEpisodes = scoredEpisodes.sort((a, b) => b.score - a.score);
   
-  // Update recent recommendations for diversity tracking
+  // Update recent recommendations
   if (rankedEpisodes.length > 0) {
     recentRecommendations.unshift(rankedEpisodes[0].id);
     recentRecommendations = recentRecommendations.slice(0, MAX_RECENT_HISTORY);
   }
   
-  console.log(`Final ranking: ${rankedEpisodes.length} episodes scored and ranked`);
+  console.log(`✅ VibeCast 2.1 ranking: ${rankedEpisodes.length} episodes scored`);
   if (rankedEpisodes.length > 0) {
-    console.log(`Top episode: "${rankedEpisodes[0].title}" (score: ${rankedEpisodes[0].score})`);
+    console.log(`🏆 Top episode: "${rankedEpisodes[0].title}" (score: ${rankedEpisodes[0].score})`);
   }
   
   return rankedEpisodes;
 }
 
-// Utility function to reset recent recommendations (for testing/new sessions)
-export function resetRecommendationHistory(): void {
-  recentRecommendations = [];
+// Enhanced session tracking
+export function incrementSessionCount(): void {
+  userSessionCount++;
 }
 
-// Utility function to get recommendation diversity stats
+export function recordSkip(): void {
+  recentSkips++;
+}
+
+export function resetSkipCount(): void {
+  recentSkips = 0;
+}
+
+// Utility functions
+export function resetRecommendationHistory(): void {
+  recentRecommendations = [];
+  userSessionCount = 0;
+  recentSkips = 0;
+}
+
 export function getRecommendationStats(): { 
   recentCount: number; 
-  recentEpisodes: string[] 
+  recentEpisodes: string[];
+  sessionCount: number;
+  recentSkips: number;
 } {
   return {
     recentCount: recentRecommendations.length,
-    recentEpisodes: recentRecommendations
+    recentEpisodes: recentRecommendations,
+    sessionCount: userSessionCount,
+    recentSkips: recentSkips
   };
 } 

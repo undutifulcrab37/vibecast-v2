@@ -1,115 +1,136 @@
-# 🎧 Vibecast
+# VibeCast 2.0 🎧
 
-A React app that helps users find the perfect podcast episode based on their current mood and available time.
+An intelligent podcast discovery app that matches your mood and themes with the perfect podcast using advanced AI-powered recommendation algorithms.
 
 ## ✨ Features
 
-- **Time-based filtering**: Slider to select available listening time (5-180 minutes)
-- **Mood selection**: Choose from Happy, Sad, Anxious, Motivated, Curious, or Bored
-- **Theme selection**: Pick interests like Thriller, Comedy, Learning, Pop Culture, or Chill Vibes
-- **Smart matching algorithm**: Advanced scoring system that matches episodes to your vibe
-- **Spotify integration**: Login with Spotify for personalized recommendations and playback
-- **Listen Notes API**: Fallback podcast discovery service
-- **Demo mode**: Works offline with sample episodes for testing
-- **Mobile-first design**: Beautiful, responsive UI built with Tailwind CSS
+- **Mood-Based Discovery**: Select your current mood and desired themes
+- **Smart Duration Matching**: Find podcasts that fit your available time
+- **Advanced Scoring Algorithm**: Uses semantic similarity, category matching, and personal preferences
+- **Spotify Integration**: Access millions of high-quality podcasts
+- **Personal Learning**: Rates episodes and learns your preferences over time
+- **Beautiful UI**: Modern, responsive design with smooth animations
 
 ## 🚀 Quick Start
 
-1. **Clone and install**:
-   ```bash
-   npm install
-   ```
+### Prerequisites
+- Node.js 16+ and npm
+- Spotify Developer Account (for podcast access)
 
-2. **Set up API keys** (optional):
-   - **Spotify**: Replace `YOUR_SPOTIFY_CLIENT_ID` in `src/services/spotify.ts`
-   - **Listen Notes**: Replace `YOUR_LISTEN_NOTES_API_KEY` in `src/services/listenNotes.ts`
+### API Setup
+1. Sign up at [Spotify for Developers](https://developer.spotify.com/)
+2. Create a new app and get your Client ID and Client Secret
+3. Add your Spotify credentials to the configuration
 
-3. **Run the app**:
-   ```bash
-   npm run dev
-   ```
+### Installation
 
-## 🔧 API Setup
+```bash
+# Clone the repository
+git clone <repository-url>
+cd vibecast-v2
 
-### Spotify API (Recommended)
-1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-2. Create a new app
-3. Add your domain to "Redirect URIs" (e.g., `http://localhost:5173`)
-4. Copy the Client ID to `src/services/spotify.ts`
+# Install dependencies
+npm install
 
-### Listen Notes API (Optional)
-1. Sign up at [Listen Notes](https://www.listennotes.com/api/)
-2. Get your API key
-3. Replace `YOUR_LISTEN_NOTES_API_KEY` in `src/services/listenNotes.ts`
+# Start the development server
+npm run dev
 
-**Note**: The app works without API keys using demo data!
+# In another terminal, start the auth server
+npm run server
+```
 
-## 🧠 How It Works
+The app will be available at `http://localhost:5173` (or the next available port).
 
-### Matching Algorithm
-The app uses a sophisticated scoring system:
+## 🔧 Configuration
 
-1. **Mood matching**: Keywords like "happy", "uplifting", "joy" boost episodes for happy moods
-2. **Theme matching**: Content-specific keywords (e.g., "mystery", "crime" for thriller)
-3. **Duration filtering**: Prefers episodes within your time limit
-4. **Recency bonus**: Recently published episodes get extra points
+Update the Spotify credentials in `src/config/index.ts`:
 
-### Keyword Maps
-```javascript
-const vibeKeywordMap = {
-  happy: ['uplifting', 'joy', 'funny', 'positive', 'feel good'],
-  sad: ['empathy', 'healing', 'grief', 'storytelling', 'emotions'],
-  anxious: ['calm', 'soothing', 'mindfulness', 'meditation', 'relax'],
-  // ... more moods
+```typescript
+export const config = {
+  spotify: {
+    clientId: 'your_spotify_client_id',
+    clientSecret: 'your_spotify_client_secret', // Set in backend
+  },
+  // ... other config
 };
 ```
 
-## 🎨 Design Features
+## 🎯 How It Works
 
-- **Modern UI**: Clean, card-based layout with smooth transitions
-- **Color-coded chips**: Visual feedback for mood and theme selections
-- **Responsive design**: Works perfectly on mobile and desktop
-- **Accessibility**: Proper ARIA labels and keyboard navigation
-- **Loading states**: Smooth loading animations and feedback
+### 1. Mood & Theme Selection
+- Choose up to 2 moods that describe how you're feeling
+- Select themes that represent what you want to get from the podcast
+- Set your available listening time
 
-## 🔄 Usage Flow
+### 2. Intelligent Matching
+The VibeCast 2.0 algorithm uses:
+- **Semantic Similarity**: Understands content meaning, not just keywords
+- **Category Matching**: Maps your selections to relevant podcast categories
+- **Personal Learning**: Adapts to your rating patterns over time
+- **Quality Signals**: Prioritizes well-produced, engaging content
+- **Duration Optimization**: Smart matching with flexible time preferences
 
-1. **Set time**: Use the slider to select how much time you have
-2. **Choose mood**: Select one or more moods that match how you're feeling
-3. **Pick themes**: Choose content types you're interested in
-4. **Find match**: Click "Find My Vibe" to get a personalized recommendation
-5. **Play or shuffle**: Play the episode or shuffle for another match
+### 3. Spotify Integration
+- Access to millions of high-quality podcasts
+- Native Spotify playback support
+- Cross-platform listening options
 
-## 🛠️ Tech Stack
+## 🧠 Algorithm Intelligence
 
-- **React 18** with TypeScript
-- **Vite** for fast development
-- **Tailwind CSS** for styling
-- **Lucide React** for icons
-- **Spotify Web API** for music integration
-- **Listen Notes API** for podcast discovery
+VibeCast 2.0 features an enhanced recommendation system:
 
-## 📱 Mobile Experience
+- **Multi-Factor Scoring**: Combines semantic analysis, category relevance, quality signals, and personal fit
+- **Adaptive Learning**: Learns from your ratings to improve future recommendations
+- **Diversity Optimization**: Prevents repetitive suggestions while maintaining quality
+- **Smart Duration Matching**: Flexible time-based filtering with context awareness
 
-The app is designed mobile-first with:
-- Touch-friendly controls
-- Optimized layouts for small screens
-- Smooth animations and transitions
-- Offline functionality with demo data
+## 📱 Usage
 
-## 🎯 Future Enhancements
+1. **Select Your Vibe**: Choose moods and themes that match your current state
+2. **Set Duration**: Use the slider to set your available listening time
+3. **Get Recommendations**: The AI finds the perfect podcast match
+4. **Rate & Learn**: Rate episodes to improve future recommendations
+5. **Shuffle**: Get alternative suggestions with intelligent variety
 
-- [ ] Save favorite episodes
-- [ ] Listening history
-- [ ] Social sharing
-- [ ] Playlist creation
-- [ ] Advanced filters (genre, language, etc.)
-- [ ] User feedback system
+## 🎵 Spotify Integration
 
-## 🤝 Contributing
+VibeCast integrates with Spotify to provide:
+- Access to millions of podcasts
+- High-quality audio streaming
+- Native app integration
+- Cross-platform compatibility
 
-Feel free to submit issues and enhancement requests!
+## 🔮 Future Enhancements
+
+- Enhanced personalization algorithms
+- Social features and sharing
+- Playlist creation and management
+- Advanced filtering options
+- Mobile app version
+
+## 🛠️ Development
+
+### Project Structure
+```
+src/
+├── components/          # React components
+├── services/           # API services (Spotify)
+├── utils/              # Utility functions and algorithms
+├── types/              # TypeScript type definitions
+└── config/             # Configuration files
+```
+
+### Key Files
+- `src/components/Vibecast.tsx` - Main app component
+- `src/services/spotify.ts` - Spotify API integration
+- `src/services/podcastService.ts` - Main podcast search service
+- `src/utils/scoring.ts` - Recommendation algorithm
+- `src/utils/categoryMapping.ts` - Mood/theme to category mapping
 
 ## 📄 License
 
-MIT License - feel free to use this project for your own purposes. 
+MIT License - feel free to use this project for your own podcast discovery needs!
+
+---
+
+**VibeCast 2.0** - Discover your perfect podcast match with AI-powered recommendations 🎧✨ 

@@ -22,11 +22,11 @@ interface UserPreference {
 }
 
 // Use environment variables with fallbacks
-const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
+const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
+const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
 
-// Only create Supabase client if credentials are provided
-const supabase = supabaseUrl && supabaseAnonKey 
+// Only create Supabase client if both credentials are provided
+const supabase = supabaseUrl && supabaseAnonKey && supabaseUrl !== 'https://placeholder.supabase.co' && supabaseAnonKey !== 'placeholder-key'
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
@@ -35,6 +35,14 @@ export class RatingService {
   private readonly PREFERENCES_KEY = 'vibecast_user_preferences';
   private readonly IMPLICIT_FEEDBACK_KEY = 'vibecast_implicit_feedback';
   private readonly USE_SUPABASE = !!supabase; // Auto-enable if Supabase is configured
+
+  constructor() {
+    if (this.USE_SUPABASE) {
+      console.log('🗄️ RatingService: Using Supabase for data storage');
+    } else {
+      console.log('💾 RatingService: Using localStorage for data storage');
+    }
+  }
 
   // Enhanced rating save with preference learning
   public async saveRating(rating: UserRating): Promise<void> {
@@ -57,16 +65,16 @@ export class RatingService {
     }
   }
 
-  // Enhanced method to get personalized episode rating bonus
+  // Enhanced method to get personalized episode rating bonus with windowed average
   public async getEpisodeRatingBonus(episodeId: string, userMoods: any[], userThemes: any[]): Promise<number> {
     let bonus = 0;
     
     // Get explicit rating data
     const ratingData = await this.getRatingData(episodeId);
     if (ratingData) {
-      // Bonus for episodes with good overall ratings
+      // Bonus for episodes with good overall ratings (enhanced weight)
       if (ratingData.averageRating > 3.5) {
-        bonus += (ratingData.averageRating - 3) * 2; // Up to +2 for 5-star episodes
+        bonus += (ratingData.averageRating - 3) * 3; // Increased from 2 to 3
       }
       
       // Bonus for mood/theme specific ratings
@@ -74,7 +82,7 @@ export class RatingService {
         const moodRating = (ratingData.moodRatings as any)[mood];
         if (moodRating && moodRating.count > 0) {
           const avgRating = moodRating.sum / moodRating.count;
-          bonus += (avgRating - 3) * 1.5; // Scale: -3 to +3
+          bonus += (avgRating - 3) * 2; // Increased from 1.5 to 2
         }
       }
       
@@ -82,31 +90,122 @@ export class RatingService {
         const themeRating = (ratingData.themeRatings as any)[theme];
         if (themeRating && themeRating.count > 0) {
           const avgRating = themeRating.sum / themeRating.count;
-          bonus += (avgRating - 3) * 1.5; // Scale: -3 to +3
+          bonus += (avgRating - 3) * 2; // Increased from 1.5 to 2
         }
       }
     }
 
-    // Get user preference data for personalization
+    // Get user preference data with windowed average (faster adaptation)
     const userPreferences = await this.getUserPreferences();
     for (const mood of userMoods) {
       for (const theme of userThemes) {
         const prefKey = `${mood}_${theme}`;
         const preference = userPreferences.find(p => `${p.mood}_${p.theme}` === prefKey);
         if (preference) {
-          bonus += preference.weight * 3; // Scale: -3 to +3
+          // Enhanced weight for recent preferences
+          bonus += preference.weight * 4; // Increased from 3 to 4
         }
       }
     }
 
-    // Get implicit feedback bonus
-    const implicitBonus = await this.getImplicitFeedbackBonus(episodeId);
-    bonus += implicitBonus;
-    
-    return Math.max(-5, Math.min(5, bonus)); // Cap bonus at ±5
+    return Math.max(-6, Math.min(6, bonus)); // Increased cap from ±5 to ±6
   }
 
-  // Update user preferences based on explicit ratings
+  // NEW: Enhanced implicit feedback bonus for VibeCast 2.1
+  public async getImplicitFeedbackBonus(episodeId: string): Promise<number> {
+    try {
+      // Get implicit feedback data from localStorage
+      const implicitData = localStorage.getItem('vibecast_implicit_feedback');
+      if (!implicitData) return 0;
+      
+      const feedback = JSON.parse(implicitData);
+      const episodeFeedback = feedback[episodeId];
+      
+      if (!episodeFeedback) return 0;
+      
+      let bonus = 0;
+      
+      // Completion rate bonus
+      if (episodeFeedback.completionRate > 0.8) {
+        bonus += 1.5; // High completion rate
+      } else if (episodeFeedback.completionRate > 0.5) {
+        bonus += 0.5; // Moderate completion rate
+      }
+      
+      // Skip penalty
+      if (episodeFeedback.skipCount > 0) {
+        bonus -= episodeFeedback.skipCount * 0.5;
+      }
+      
+      // Fast-forward penalty
+      if (episodeFeedback.fastForwardCount > 0) {
+        bonus -= episodeFeedback.fastForwardCount * 0.3;
+      }
+      
+      // Play time bonus
+      if (episodeFeedback.totalPlayTime > 0) {
+        const normalizedPlayTime = Math.min(1, episodeFeedback.totalPlayTime / 1800); // Normalize to 30 minutes
+        bonus += normalizedPlayTime * 0.5;
+      }
+      
+      return Math.max(-2, Math.min(2, bonus));
+    } catch (error) {
+      console.error('Error getting implicit feedback:', error);
+      return 0;
+    }
+  }
+
+  // NEW: Record implicit feedback for learning
+  public async recordImplicitFeedback(episodeId: string, feedbackType: 'skip' | 'complete' | 'fastForward', value?: number): Promise<void> {
+    try {
+      const implicitData = localStorage.getItem('vibecast_implicit_feedback') || '{}';
+      const feedback = JSON.parse(implicitData);
+      
+      if (!feedback[episodeId]) {
+        feedback[episodeId] = {
+          skipCount: 0,
+          completionRate: 0,
+          fastForwardCount: 0,
+          totalPlayTime: 0,
+          lastUpdated: Date.now()
+        };
+      }
+      
+      const episodeFeedback = feedback[episodeId];
+      
+      switch (feedbackType) {
+        case 'skip':
+          episodeFeedback.skipCount += 1;
+          break;
+        case 'complete':
+          episodeFeedback.completionRate = value || 1;
+          break;
+        case 'fastForward':
+          episodeFeedback.fastForwardCount += 1;
+          break;
+      }
+      
+      episodeFeedback.lastUpdated = Date.now();
+      
+      // Keep only recent feedback (last 1000 episodes)
+      const episodeIds = Object.keys(feedback);
+      if (episodeIds.length > 1000) {
+        const sortedIds = episodeIds.sort((a, b) => feedback[b].lastUpdated - feedback[a].lastUpdated);
+        const keepIds = sortedIds.slice(0, 1000);
+        const cleanedFeedback: any = {};
+        keepIds.forEach(id => {
+          cleanedFeedback[id] = feedback[id];
+        });
+        localStorage.setItem('vibecast_implicit_feedback', JSON.stringify(cleanedFeedback));
+      } else {
+        localStorage.setItem('vibecast_implicit_feedback', JSON.stringify(feedback));
+      }
+    } catch (error) {
+      console.error('Error recording implicit feedback:', error);
+    }
+  }
+
+  // Enhanced user preference update with windowed average for faster adaptation
   private async updateUserPreferences(rating: UserRating): Promise<void> {
     const preferences = await this.getUserPreferences();
     
@@ -128,8 +227,10 @@ export class RatingService {
           preferences.push(preference);
         }
         
-        // Update preference weight using exponential moving average
-        const alpha = 0.3; // Learning rate
+        // VibeCast 2.1: Use windowed average for faster adaptation
+        const windowSize = 5; // Consider last 5 ratings
+        const alpha = Math.min(1, 1 / Math.max(1, preference.episodeCount / windowSize));
+        
         const normalizedRating = (rating.rating - 3) / 2; // Convert 1-5 to -1 to 1
         preference.weight = preference.weight * (1 - alpha) + normalizedRating * alpha;
         preference.episodeCount += 1;
@@ -140,28 +241,6 @@ export class RatingService {
     
     // Save updated preferences
     await this.saveUserPreferences(preferences);
-  }
-
-  // Get implicit feedback bonus based on listening patterns
-  private async getImplicitFeedbackBonus(episodeId: string): Promise<number> {
-    const feedback = await this.getImplicitFeedback();
-    const episodeFeedback = feedback.filter(f => f.episodeId === episodeId);
-    
-    if (episodeFeedback.length === 0) return 0;
-    
-    // Calculate average completion rate
-    const avgCompletionRate = episodeFeedback.reduce((sum, f) => sum + f.completionRate, 0) / episodeFeedback.length;
-    
-    // High completion rate = positive bonus
-    if (avgCompletionRate > 0.8) {
-      return 2; // High engagement
-    } else if (avgCompletionRate > 0.5) {
-      return 1; // Medium engagement
-    } else if (avgCompletionRate < 0.2) {
-      return -2; // Low engagement (likely skipped)
-    }
-    
-    return 0;
   }
 
   // User preference management
@@ -190,7 +269,14 @@ export class RatingService {
     localStorage.setItem(this.PREFERENCES_KEY, JSON.stringify(preferences));
   }
 
+  // Commented out unused method
+  // private async getImplicitFeedback(): Promise<ImplicitFeedback[]> {
+  //   // Implementation for implicit feedback collection
+  //   return [];
+  // }
+
   // Implicit feedback management
+  /*
   private async getImplicitFeedback(): Promise<ImplicitFeedback[]> {
     if (this.USE_SUPABASE) {
       return await this.getImplicitFeedbackFromSupabase();
@@ -198,6 +284,7 @@ export class RatingService {
       return this.getImplicitFeedbackFromLocalStorage();
     }
   }
+  */
 
   private getImplicitFeedbackFromLocalStorage(): ImplicitFeedback[] {
     const stored = localStorage.getItem(this.IMPLICIT_FEEDBACK_KEY);
@@ -215,7 +302,10 @@ export class RatingService {
 
   // Supabase methods for preferences
   private async getUserPreferencesFromSupabase(): Promise<UserPreference[]> {
-    if (!supabase) return [];
+    if (!supabase) {
+      console.log('💾 Supabase not configured, using localStorage for preferences');
+      return this.getUserPreferencesFromLocalStorage();
+    }
     
     try {
       const { data, error } = await supabase
@@ -223,19 +313,23 @@ export class RatingService {
         .select('*');
 
       if (error) {
-        console.error('Error fetching preferences from Supabase:', error);
+        console.warn('⚠️ Supabase preferences error (falling back to localStorage):', error.message);
         return this.getUserPreferencesFromLocalStorage();
       }
 
       return data || [];
     } catch (error) {
-      console.error('Supabase preferences error:', error);
+      console.warn('⚠️ Supabase preferences connection error (falling back to localStorage):', error);
       return this.getUserPreferencesFromLocalStorage();
     }
   }
 
   private async saveUserPreferencesToSupabase(preferences: UserPreference[]): Promise<void> {
-    if (!supabase) return;
+    if (!supabase) {
+      console.log('💾 Supabase not configured, using localStorage for preferences');
+      this.saveUserPreferencesToLocalStorage(preferences);
+      return;
+    }
     
     try {
       // Clear existing preferences and insert new ones
@@ -246,18 +340,22 @@ export class RatingService {
         .insert(preferences);
 
       if (error) {
-        console.error('Error saving preferences to Supabase:', error);
+        console.warn('⚠️ Supabase preferences save error (falling back to localStorage):', error.message);
         this.saveUserPreferencesToLocalStorage(preferences);
       }
     } catch (error) {
-      console.error('Supabase preferences save error:', error);
+      console.warn('⚠️ Supabase preferences save connection error (falling back to localStorage):', error);
       this.saveUserPreferencesToLocalStorage(preferences);
     }
   }
 
   // Supabase methods for implicit feedback
+  /*
   private async getImplicitFeedbackFromSupabase(): Promise<ImplicitFeedback[]> {
-    if (!supabase) return [];
+    if (!supabase) {
+      console.log('💾 Supabase not configured, using localStorage for implicit feedback');
+      return this.getImplicitFeedbackFromLocalStorage();
+    }
     
     try {
       const { data, error } = await supabase
@@ -267,19 +365,21 @@ export class RatingService {
         .limit(1000);
 
       if (error) {
-        console.error('Error fetching implicit feedback from Supabase:', error);
+        console.warn('⚠️ Supabase implicit feedback error (falling back to localStorage):', error.message);
         return this.getImplicitFeedbackFromLocalStorage();
       }
 
       return data || [];
     } catch (error) {
-      console.error('Supabase implicit feedback error:', error);
+      console.warn('⚠️ Supabase implicit feedback connection error (falling back to localStorage):', error);
       return this.getImplicitFeedbackFromLocalStorage();
     }
   }
+  */
 
   private async saveImplicitFeedbackToSupabase(feedback: ImplicitFeedback): Promise<void> {
     if (!supabase) {
+      console.log('💾 Supabase not configured, using localStorage for implicit feedback');
       this.saveImplicitFeedbackToLocalStorage(feedback);
       return;
     }
@@ -290,11 +390,11 @@ export class RatingService {
         .insert([feedback]);
 
       if (error) {
-        console.error('Error saving implicit feedback to Supabase:', error);
+        console.warn('⚠️ Supabase implicit feedback save error (falling back to localStorage):', error.message);
         this.saveImplicitFeedbackToLocalStorage(feedback);
       }
     } catch (error) {
-      console.error('Supabase implicit feedback save error:', error);
+      console.warn('⚠️ Supabase implicit feedback save connection error (falling back to localStorage):', error);
       this.saveImplicitFeedbackToLocalStorage(feedback);
     }
   }

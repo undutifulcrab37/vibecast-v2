@@ -1,28 +1,20 @@
-// Vercel serverless function to handle Spotify authentication
+// Vercel serverless function for Spotify authentication
 export default async function handler(req, res) {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
   if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
+    return res.status(405).json({ message: 'Method not allowed' });
   }
 
   try {
-    const clientId = '0b957080e89f49aba057eeda72d543af';
-    const clientSecret = process.env.SPOTIFY_CLIENT_SECRET; // Set this in Vercel environment variables
+    const clientId = process.env.VITE_SPOTIFY_CLIENT_ID;
+    const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
 
-    if (!clientSecret) {
-      throw new Error('Spotify client secret not configured');
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({ 
+        message: 'Spotify credentials not configured' 
+      });
     }
 
+    // Get Spotify access token using client credentials flow
     const response = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
@@ -33,21 +25,21 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
-      throw new Error(`Spotify auth failed: ${response.status}`);
+      throw new Error(`Spotify API error: ${response.status}`);
     }
 
     const data = await response.json();
     
-    res.status(200).json({
+    return res.status(200).json({
       access_token: data.access_token,
       expires_in: data.expires_in,
       token_type: data.token_type,
     });
   } catch (error) {
     console.error('Spotify auth error:', error);
-    res.status(500).json({ 
-      error: 'Authentication failed',
-      message: error.message 
+    return res.status(500).json({ 
+      message: 'Failed to authenticate with Spotify',
+      error: error.message 
     });
   }
 } 

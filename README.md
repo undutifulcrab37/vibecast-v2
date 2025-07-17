@@ -133,4 +133,4 @@ MIT License - feel free to use this project for your own podcast discovery needs
 
 ---
 
-**VibeCast 2.0** - Discover your perfect podcast match with AI-powered recommendations 🎧✨ 
+**VibeCast 2.0** - Discover your perfect podcast match with AI-powered recommendations 🎧✨ # VibeCast v2 - Latest Update Thu Jul 17 17:02:34 AEST 2025
